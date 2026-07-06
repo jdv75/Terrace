@@ -7,3 +7,4 @@ rapidfuzz
 requests
 jinja2
 python-multipart
+openpyxl

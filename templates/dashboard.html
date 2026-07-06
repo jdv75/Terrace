@@ -176,6 +176,28 @@ button:hover{
 
 }
 
+.excel-btn{
+
+    display:inline-block;
+    margin-top:10px;
+    background:#16a34a;
+    color:white;
+    text-decoration:none;
+    padding:12px 18px;
+    border-radius:10px;
+    font-size:15px;
+    font-weight:bold;
+    transition:.2s;
+
+}
+
+.excel-btn:hover{
+
+    transform:scale(1.05);
+    background:#15803d;
+
+}
+
 </style>
 
 </head>
@@ -189,10 +211,16 @@ button:hover{
 <p>Restaurant Orders Dashboard</p>
 </div>
 
-<div>
+<div style="text-align:right;">
 
 <h2>{{ orders|length }}</h2>
 <p>Pending Orders</p>
+
+<br>
+
+<a href="/export/excel" class="excel-btn">
+📥 Download Excel
+</a>
 
 </div>
 

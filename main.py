@@ -12,12 +12,13 @@ from dotenv import load_dotenv
 import re
 import unicodedata
 
+from fastapi.responses import StreamingResponse
+from openpyxl import Workbook
+from io import BytesIO
+
 from rapidfuzz import process, fuzz
 
 from fastapi.staticfiles import StaticFiles
-
-import csv
-from pathlib import Path
 
 load_dotenv()
 
@@ -163,48 +164,6 @@ def normalizar(texto):
     texto = re.sub(r"\s+", " ", texto).strip()
     return texto
 
-def guardar_pedido_csv(numero, pedido, order_id):
-    archivo = Path("orders_export.csv")
-
-    existe = archivo.exists()
-
-    with open(archivo, mode="a", newline="", encoding="utf-8") as file:
-        writer = csv.writer(file)
-
-        if not existe:
-            writer.writerow([
-                "order_id",
-                "fecha",
-                "telefono",
-                "nombre",
-                "producto",
-                "cantidad",
-                "tipo_entrega",
-                "direccion",
-                "hora",
-                "metodo_pago",
-                "notas",
-                "estado",
-                "total"
-            ])
-
-        for item in pedido.get("items", []):
-            writer.writerow([
-                order_id,
-                datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                numero,
-                pedido.get("nombre", ""),
-                item.get("producto", ""),
-                item.get("cantidad", ""),
-                pedido.get("tipo_entrega", ""),
-                pedido.get("direccion", ""),
-                pedido.get("hora", ""),
-                pedido.get("metodo_pago", ""),
-                pedido.get("notas", ""),
-                "recibido",
-                calcular_total(pedido)
-            ])
-
 templates = Jinja2Templates(directory="templates")
 
 def calcular_total(pedido):
@@ -314,8 +273,6 @@ def guardar_pedido_db(numero, pedido):
 
     conn.commit()
     conn.close()
-    guardar_pedido_csv(numero, pedido, order_id)
-
 
 # Funciones para META
 
@@ -737,3 +694,85 @@ async def cambiar_estado(order_id: int, estado: str):
     conn.close()
 
     return RedirectResponse(url="/dashboard", status_code=303)
+
+@app.get("/export/excel")
+async def export_excel():
+    conn = get_connection()
+    cursor = conn.cursor(cursor_factory=RealDictCursor)
+
+    cursor.execute("""
+        SELECT 
+            o.id AS order_id,
+            o.fecha,
+            o.telefono,
+            o.nombre,
+            oi.producto,
+            oi.cantidad,
+            oi.notas AS notas_producto,
+            o.tipo_entrega,
+            o.direccion,
+            o.hora,
+            o.metodo_pago,
+            o.notas AS notas_pedido,
+            o.estado,
+            o.total
+        FROM orders o
+        LEFT JOIN order_items oi ON o.id = oi.order_id
+        ORDER BY o.id DESC
+    """)
+
+    rows = cursor.fetchall()
+    conn.close()
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Pedidos"
+
+    headers = [
+        "Order ID",
+        "Fecha",
+        "Teléfono",
+        "Nombre",
+        "Producto",
+        "Cantidad",
+        "Notas producto",
+        "Tipo entrega",
+        "Dirección",
+        "Hora",
+        "Método pago",
+        "Notas pedido",
+        "Estado",
+        "Total"
+    ]
+
+    ws.append(headers)
+
+    for row in rows:
+        ws.append([
+            row["order_id"],
+            row["fecha"],
+            row["telefono"],
+            row["nombre"],
+            row["producto"],
+            row["cantidad"],
+            row["notas_producto"],
+            row["tipo_entrega"],
+            row["direccion"],
+            row["hora"],
+            row["metodo_pago"],
+            row["notas_pedido"],
+            row["estado"],
+            row["total"]
+        ])
+
+    file_stream = BytesIO()
+    wb.save(file_stream)
+    file_stream.seek(0)
+
+    return StreamingResponse(
+        file_stream,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={
+            "Content-Disposition": "attachment; filename=pedidos_terrace.xlsx"
+        }
+    )
