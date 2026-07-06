@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="refresh" content="5">
+<title>Vertex Forge | Orders Dashboard</title>
+
+<style>
+
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+    font-family:Segoe UI,Arial,sans-serif;
+}
+
+body{
+    background:#f3f5f9;
+}
+
+header{
+    background:#111827;
+    color:white;
+    padding:25px 40px;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    box-shadow:0 5px 15px rgba(0,0,0,.15);
+}
+
+header h1{
+    font-size:28px;
+}
+
+header p{
+    color:#cbd5e1;
+}
+
+.container{
+    width:90%;
+    max-width:1300px;
+    margin:40px auto;
+}
+
+.cards{
+
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(360px,1fr));
+    gap:25px;
+
+}
+
+.card{
+
+    background:white;
+    border-radius:18px;
+    padding:25px;
+    box-shadow:0 10px 25px rgba(0,0,0,.08);
+    transition:.25s;
+
+}
+
+.card:hover{
+
+    transform:translateY(-6px);
+
+}
+
+.name{
+
+    font-size:24px;
+    font-weight:bold;
+    color:#111827;
+
+}
+
+.badge{
+
+    display:inline-block;
+    margin-top:10px;
+    color:white;
+    padding:6px 15px;
+    border-radius:30px;
+    font-size:13px;
+
+}
+
+.badge-recibido{
+    background:#3b82f6;
+}
+
+.badge-preparando{
+    background:#f59e0b;
+}
+
+.badge-listo{
+    background:#10b981;
+}
+
+.badge-entregado{
+    background:#6b7280;
+}
+
+.info{
+
+    margin-top:20px;
+
+}
+
+.info p{
+
+    margin:10px 0;
+    color:#374151;
+
+}
+
+.buttons{
+
+    margin-top:25px;
+    display:flex;
+    gap:10px;
+    flex-wrap:wrap;
+
+}
+
+button{
+
+    border:none;
+    cursor:pointer;
+    color:white;
+    padding:12px 18px;
+    border-radius:10px;
+    font-size:15px;
+    transition:.2s;
+
+}
+
+button:hover{
+
+    transform:scale(1.05);
+
+}
+
+.preparando{
+
+    background:#f59e0b;
+
+}
+
+.listo{
+
+    background:#10b981;
+
+}
+
+.entregado{
+
+    background:#ef4444;
+
+}
+
+.empty{
+
+    text-align:center;
+    margin-top:80px;
+    font-size:24px;
+    color:#777;
+
+}
+
+.order-number{
+
+    color:#6b7280;
+    font-size:14px;
+    margin-bottom:8px;
+
+}
+
+</style>
+
+</head>
+
+<body>
+
+<header>
+
+<div>
+<h1>🍔 Terrace</h1>
+<p>Restaurant Orders Dashboard</p>
+</div>
+
+<div>
+
+<h2>{{ orders|length }}</h2>
+<p>Pending Orders</p>
+
+</div>
+
+</header>
+
+<div class="container">
+
+{% if orders|length == 0 %}
+
+<div class="empty">
+
+<h2>No pending orders 🎉</h2>
+
+</div>
+
+{% endif %}
+
+<div class="cards">
+
+{% for data in orders %}
+
+<div class="card">
+
+<div class="order-number">
+Order #{{ data["order"]["id"] }}
+</div>
+
+<div class="name">
+{{ data["order"]["nombre"] }}
+</div>
+
+<span class="badge badge-{{ data['order']['estado'] }}">
+{{ data["order"]["estado"] }}
+</span>
+
+<div class="info">
+
+<p><strong>🍔 Products:</strong></p>
+
+{% for item in data["items"] %}
+<p>
+    • {{ item["cantidad"] }} x {{ item["producto"] }}
+    {% if item["notas"] %}
+        <br>
+        <small>📝 {{ item["notas"] }}</small>
+    {% endif %}
+</p>
+{% endfor %}
+
+<p><strong>🚚 Delivery:</strong> {{ data["order"]["tipo_entrega"] }}</p>
+
+{% if data["order"]["tipo_entrega"] == "domicilio" %}
+<p><strong>📍 Address:</strong> {{ data["order"]["direccion"] }}</p>
+{% endif %}
+
+<p><strong>📅 Created:</strong> {{ data["order"]["fecha"] }}</p>
+
+<p><strong>💳 Payment:</strong> {{ data["order"]["metodo_pago"] }}</p>
+
+<p><strong>🕒 Time:</strong> {{ data["order"]["hora"] }}</p>
+
+<p><strong>📞 Phone:</strong> {{ data["order"]["telefono"] }}</p>
+
+<p><strong>📝 Notes:</strong> {{ data["order"]["notas"] }}</p>
+
+<p><strong>💰 Total:</strong> ${{ data["order"]["total"] }}</p>
+
+</div>
+
+<div class="buttons">
+
+<form action="/orders/{{ data['order']['id'] }}/estado/preparando" method="post">
+<button class="preparando">
+👨‍🍳 Preparing
+</button>
+</form>
+
+<form action="/orders/{{ data['order']['id'] }}/estado/listo" method="post">
+<button class="listo">
+✅ Ready
+</button>
+</form>
+
+<form action="/orders/{{ data['order']['id'] }}/estado/entregado" method="post">
+<button class="entregado">
+📦 Delivered
+</button>
+</form>
+
+</div>
+
+</div>
+
+{% endfor %}
+
+</div>
+
+</div>
+
+</body>
+
+</html>

@@ -1,0 +1,9 @@
+fastapi
+uvicorn
+openai
+python-dotenv
+psycopg2-binary
+rapidfuzz
+requests
+jinja2
+python-multipart
