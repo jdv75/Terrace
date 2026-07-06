@@ -799,3 +799,90 @@ async def export_excel(fecha: str = None):
             "Content-Disposition": "attachment; filename=pedidos_terrace.xlsx"
         }
     )
+
+from fastapi.responses import HTMLResponse
+
+@app.get("/privacy", response_class=HTMLResponse)
+async def privacy_policy():
+    return """
+    <html>
+    <head><title>Privacy Policy - Terrace Coffee</title></head>
+    <body style="font-family: Arial; max-width: 800px; margin: 40px auto; line-height: 1.6;">
+        <h1>Privacy Policy</h1>
+        <p>Last updated: July 2026</p>
+
+        <p>Terrace Coffee uses WhatsApp to communicate with customers, receive orders, answer questions, and provide customer support.</p>
+
+        <h2>Information We Collect</h2>
+        <p>We may collect your name, phone number, order details, delivery information, payment preference, and any message you send to us through WhatsApp.</p>
+
+        <h2>How We Use Information</h2>
+        <p>We use this information only to process orders, respond to customer requests, provide service updates, and improve our customer experience.</p>
+
+        <h2>Data Sharing</h2>
+        <p>We do not sell or rent customer personal information. Information may only be shared with service providers when necessary to operate our ordering and messaging system.</p>
+
+        <h2>Data Retention</h2>
+        <p>We keep customer information only as long as necessary for order management, customer support, legal, or business purposes.</p>
+
+        <h2>Contact</h2>
+        <p>If you have questions about this Privacy Policy, contact us at: juandavidvasquezescobar2020@gmail.com</p>
+    </body>
+    </html>
+    """
+
+
+@app.get("/terms", response_class=HTMLResponse)
+async def terms_of_service():
+    return """
+    <html>
+    <head><title>Terms of Service - Terrace Coffee</title></head>
+    <body style="font-family: Arial; max-width: 800px; margin: 40px auto; line-height: 1.6;">
+        <h1>Terms of Service</h1>
+        <p>Last updated: July 2026</p>
+
+        <p>By using Terrace Coffee's WhatsApp ordering service, you agree to these Terms of Service.</p>
+
+        <h2>Service</h2>
+        <p>Our WhatsApp service allows customers to ask questions, view menu information, place orders, and communicate with Terrace Coffee.</p>
+
+        <h2>Orders</h2>
+        <p>Order availability, prices, delivery options, and preparation times may vary. Terrace Coffee may confirm, modify, or cancel orders when necessary.</p>
+
+        <h2>User Responsibilities</h2>
+        <p>Customers agree to provide accurate information when placing an order, including name, phone number, delivery details, and payment preference.</p>
+
+        <h2>Limitation of Liability</h2>
+        <p>Terrace Coffee is not responsible for delays, incorrect information submitted by customers, or service interruptions outside our control.</p>
+
+        <h2>Contact</h2>
+        <p>For questions about these Terms, contact us at: juandavidvasquezescobar2020@gmail.com</p>
+    </body>
+    </html>
+    """
+
+
+@app.get("/data-deletion", response_class=HTMLResponse)
+async def data_deletion():
+    return """
+    <html>
+    <head><title>Data Deletion - Terrace Coffee</title></head>
+    <body style="font-family: Arial; max-width: 800px; margin: 40px auto; line-height: 1.6;">
+        <h1>User Data Deletion Instructions</h1>
+        <p>Last updated: July 2026</p>
+
+        <p>If you want Terrace Coffee to delete your personal data collected through our WhatsApp ordering service, please contact us by email.</p>
+
+        <h2>How to Request Deletion</h2>
+        <p>Send an email to: juandavidvasquezescobar2020@gmail.com</p>
+
+        <p>Please include your WhatsApp phone number and write: "Delete my data" in the email subject.</p>
+
+        <h2>Processing Time</h2>
+        <p>We will review and process deletion requests within a reasonable time, unless we are required to keep certain information for legal, security, or business record purposes.</p>
+
+        <h2>Contact</h2>
+        <p>Email: juandavidvasquezescobar2020@gmail.com</p>
+    </body>
+    </html>
+    """
