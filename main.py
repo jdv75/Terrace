@@ -696,30 +696,53 @@ async def cambiar_estado(order_id: int, estado: str):
     return RedirectResponse(url="/dashboard", status_code=303)
 
 @app.get("/export/excel")
-async def export_excel():
+async def export_excel(fecha: str = None):
     conn = get_connection()
     cursor = conn.cursor(cursor_factory=RealDictCursor)
 
-    cursor.execute("""
-        SELECT 
-            o.id AS order_id,
-            o.fecha,
-            o.telefono,
-            o.nombre,
-            oi.producto,
-            oi.cantidad,
-            oi.notas AS notas_producto,
-            o.tipo_entrega,
-            o.direccion,
-            o.hora,
-            o.metodo_pago,
-            o.notas AS notas_pedido,
-            o.estado,
-            o.total
-        FROM orders o
-        LEFT JOIN order_items oi ON o.id = oi.order_id
-        ORDER BY o.id DESC
-    """)
+    if fecha:
+        cursor.execute("""
+            SELECT 
+                o.id AS order_id,
+                o.fecha,
+                o.telefono,
+                o.nombre,
+                oi.producto,
+                oi.cantidad,
+                oi.notas AS notas_producto,
+                o.tipo_entrega,
+                o.direccion,
+                o.hora,
+                o.metodo_pago,
+                o.notas AS notas_pedido,
+                o.estado,
+                o.total
+            FROM orders o
+            LEFT JOIN order_items oi ON o.id = oi.order_id
+            WHERE o.fecha LIKE %s
+            ORDER BY o.id DESC
+        """, (f"{fecha}%",))
+    else:
+        cursor.execute("""
+            SELECT 
+                o.id AS order_id,
+                o.fecha,
+                o.telefono,
+                o.nombre,
+                oi.producto,
+                oi.cantidad,
+                oi.notas AS notas_producto,
+                o.tipo_entrega,
+                o.direccion,
+                o.hora,
+                o.metodo_pago,
+                o.notas AS notas_pedido,
+                o.estado,
+                o.total
+            FROM orders o
+            LEFT JOIN order_items oi ON o.id = oi.order_id
+            ORDER BY o.id DESC
+        """)
 
     rows = cursor.fetchall()
     conn.close()

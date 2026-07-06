@@ -198,6 +198,30 @@ button:hover{
 
 }
 
+.excel-btn{
+    display:inline-block;
+    background:#16a34a;
+    color:white;
+    text-decoration:none;
+    padding:12px 18px;
+    border-radius:10px;
+    font-size:15px;
+    font-weight:bold;
+}
+
+.excel-small-btn{
+    background:#2563eb;
+    color:white;
+    padding:9px 12px;
+    border-radius:8px;
+}
+
+input[type="date"]{
+    padding:9px;
+    border-radius:8px;
+    border:none;
+}
+
 </style>
 
 </head>
@@ -215,6 +239,19 @@ button:hover{
 
 <h2>{{ orders|length }}</h2>
 <p>Pending Orders</p>
+
+<br>
+
+<a href="/export/excel" class="excel-btn">
+📥 Descargar todo
+</a>
+
+<form action="/export/excel" method="get" style="margin-top:10px;">
+    <input type="date" name="fecha" required>
+    <button type="submit" class="excel-small-btn">
+        📅 Descargar día
+    </button>
+</form>
 
 <br>
 
