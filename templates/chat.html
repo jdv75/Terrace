@@ -9,7 +9,7 @@
     <a href="/dashboard">← Dashboard</a> |
     <a href="/inbox">Inbox</a>
 
-    <div style="margin-top:20px;">
+    <div id="messages" style="margin-top:20px;">
         {% for m in mensajes %}
             <div style="
                 margin:10px;
@@ -34,5 +34,15 @@
         <br>
         <button type="submit">Enviar por WhatsApp</button>
     </form>
+
+    <script>
+        setInterval(() => {
+            fetch("/chat/{{ telefono }}/messages")
+                .then(response => response.text())
+                .then(html => {
+                    document.getElementById("messages").innerHTML = html;
+                });
+        }, 3000);
+    </script>
 </body>
 </html>

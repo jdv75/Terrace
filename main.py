@@ -976,3 +976,41 @@ async def chat(request: Request, telefono: str):
             "mensajes": mensajes
         }
     )
+
+@app.get("/chat/{telefono}/messages")
+async def chat_messages(telefono: str):
+    conn = get_connection()
+    cursor = conn.cursor(cursor_factory=RealDictCursor)
+
+    cursor.execute("""
+        SELECT *
+        FROM messages
+        WHERE telefono = %s
+        ORDER BY id ASC
+    """, (telefono,))
+
+    mensajes = cursor.fetchall()
+    conn.close()
+
+    html = ""
+
+    for m in mensajes:
+        if m["direccion"] == "out":
+            style = "background:#d1fae5; margin-left:auto;"
+        else:
+            style = "background:#e5e7eb;"
+
+        html += f"""
+        <div style="
+            margin:10px;
+            padding:10px;
+            border-radius:10px;
+            max-width:60%;
+            {style}
+        ">
+            <p>{m["mensaje"]}</p>
+            <small>{m["fecha"]}</small>
+        </div>
+        """
+
+    return HTMLResponse(content=html)
