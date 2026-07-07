@@ -90,6 +90,17 @@ def crear_tabla():
         )
     """)
 
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS messages (
+            id SERIAL PRIMARY KEY,
+            telefono TEXT,
+            nombre TEXT,
+            mensaje TEXT,
+            direccion TEXT,
+            fecha TEXT
+        )
+    """)
+
     conn.commit()
     conn.close()
 
@@ -121,6 +132,24 @@ def obtener_conversacion(numero):
         "metodo_pago": "",
         "notas": ""
     }
+
+def guardar_mensaje(telefono, nombre, mensaje, direccion):
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        INSERT INTO messages (telefono, nombre, mensaje, direccion, fecha)
+        VALUES (%s, %s, %s, %s, %s)
+    """, (
+        telefono,
+        nombre,
+        mensaje,
+        direccion,
+        datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    ))
+
+    conn.commit()
+    conn.close()
 
 
 def guardar_conversacion(numero, pedido):
@@ -295,6 +324,8 @@ def enviar_texto(numero, texto):
 
     response = requests.post(url, headers=headers, json=payload)
     print("META RESPONSE:", response.status_code, response.text)
+    if response.status_code in [200, 201]:
+        guardar_mensaje(numero, "Terrace", texto, "out")
 
 
 def enviar_documento(numero, link, filename="menu.pdf"):
@@ -375,6 +406,9 @@ async def whatsapp(request: Request):
             return Response(content="EVENT_RECEIVED", media_type="text/plain")
 
         mensaje = mensaje_obj["text"]["body"]
+        nombre = value.get("contacts", [{}])[0].get("profile", {}).get("name", "")
+        guardar_mensaje(numero, nombre, mensaje, "in")
+
     except Exception as e:
         print("ERROR LEYENDO WEBHOOK META:", e)
         return Response(content="EVENT_RECEIVED", media_type="text/plain")
@@ -642,6 +676,18 @@ Devuelve este JSON:
 
     return Response(content="EVENT_RECEIVED", media_type="text/plain")
 
+@app.post("/manual/send")
+async def enviar_manual(request: Request):
+    form = await request.form()
+
+    telefono = form.get("telefono")
+    mensaje = form.get("mensaje")
+
+    if telefono and mensaje:
+        enviar_texto(telefono, mensaje)
+
+    return RedirectResponse(url=f"/chat/{telefono}", status_code=303)
+
 @app.get("/dashboard")
 async def dashboard(request: Request):
     conn = get_connection()
@@ -886,3 +932,47 @@ async def data_deletion():
     </body>
     </html>
     """
+@app.get("/inbox")
+async def inbox(request: Request):
+    conn = get_connection()
+    cursor = conn.cursor(cursor_factory=RealDictCursor)
+
+    cursor.execute("""
+        SELECT telefono, MAX(nombre) AS nombre, MAX(fecha) AS ultima_fecha
+        FROM messages
+        GROUP BY telefono
+        ORDER BY ultima_fecha DESC
+    """)
+
+    chats = cursor.fetchall()
+    conn.close()
+
+    return templates.TemplateResponse(
+        request,
+        "inbox.html",
+        {"chats": chats}
+    )
+
+@app.get("/chat/{telefono}")
+async def chat(request: Request, telefono: str):
+    conn = get_connection()
+    cursor = conn.cursor(cursor_factory=RealDictCursor)
+
+    cursor.execute("""
+        SELECT *
+        FROM messages
+        WHERE telefono = %s
+        ORDER BY id ASC
+    """, (telefono,))
+
+    mensajes = cursor.fetchall()
+    conn.close()
+
+    return templates.TemplateResponse(
+        request,
+        "chat.html",
+        {
+            "telefono": telefono,
+            "mensajes": mensajes
+        }
+    )

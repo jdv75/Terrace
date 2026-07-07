@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Inbox WhatsApp</title>
+</head>
+<body>
+    <h1>Chats de WhatsApp</h1>
+
+    {% for chat in chats %}
+        <div style="padding:15px; border-bottom:1px solid #ddd;">
+            <a href="/chat/{{ chat.telefono }}">
+                <strong>{{ chat.nombre or chat.telefono }}</strong>
+                <br>
+                {{ chat.telefono }}
+                <br>
+                Último mensaje: {{ chat.ultima_fecha }}
+            </a>
+        </div>
+    {% endfor %}
+</body>
+</html>
