@@ -2,20 +2,141 @@
 <html>
 <head>
     <title>Inbox WhatsApp</title>
-</head>
-<body>
-    <h1>Chats de WhatsApp</h1>
 
-    {% for chat in chats %}
-        <div style="padding:15px; border-bottom:1px solid #ddd;">
-            <a href="/chat/{{ chat.telefono }}">
-                <strong>{{ chat.nombre or chat.telefono }}</strong>
-                <br>
-                {{ chat.telefono }}
-                <br>
-                Último mensaje: {{ chat.ultima_fecha }}
-            </a>
-        </div>
-    {% endfor %}
+    <style>
+        *{
+            margin:0;
+            padding:0;
+            box-sizing:border-box;
+            font-family:"Segoe UI",Arial,sans-serif;
+        }
+
+        body{
+            background:#f3f4f6;
+        }
+
+        header{
+            background:#111827;
+            color:white;
+            padding:25px 40px;
+            box-shadow:0 4px 15px rgba(0,0,0,.15);
+        }
+
+        header h1{
+            font-size:28px;
+            margin:0;
+        }
+
+        .container{
+            width:90%;
+            max-width:900px;
+            margin:35px auto;
+        }
+
+        .chat-list{
+            background:white;
+            border-radius:18px;
+            overflow:hidden;
+            box-shadow:0 10px 30px rgba(0,0,0,.08);
+        }
+
+        .chat{
+            display:flex;
+            align-items:center;
+            padding:20px;
+            border-bottom:1px solid #ececec;
+            transition:.25s;
+            text-decoration:none;
+            color:#111827;
+        }
+
+        .chat:last-child{
+            border-bottom:none;
+        }
+
+        .chat:hover{
+            background:#f9fafb;
+        }
+
+        .avatar{
+            width:55px;
+            height:55px;
+            border-radius:50%;
+            background:#22c55e;
+            color:white;
+            display:flex;
+            justify-content:center;
+            align-items:center;
+            font-size:22px;
+            font-weight:bold;
+            margin-right:18px;
+            flex-shrink:0;
+        }
+
+        .info{
+            flex:1;
+        }
+
+        .nombre{
+            font-size:18px;
+            font-weight:600;
+            margin-bottom:5px;
+        }
+
+        .telefono{
+            color:#6b7280;
+            font-size:14px;
+            margin-bottom:6px;
+        }
+
+        .fecha{
+            color:#9ca3af;
+            font-size:13px;
+        }
+    </style>
+</head>
+
+<body>
+
+<header>
+    <h1>Inbox de WhatsApp</h1>
+</header>
+
+<div class="container">
+
+    <div class="chat-list">
+
+        {% for chat in chats %}
+
+        <a class="chat" href="/chat/{{ chat.telefono }}">
+
+            <div class="avatar">
+                {{ (chat.nombre or chat.telefono)[0]|upper }}
+            </div>
+
+            <div class="info">
+
+                <div class="nombre">
+                    {{ chat.nombre or chat.telefono }}
+                </div>
+
+                <div class="telefono">
+                    {{ chat.telefono }}
+                </div>
+
+                <div class="fecha">
+                    Último mensaje: {{ chat.ultima_fecha }}
+                </div>
+
+            </div>
+
+        </a>
+
+        {% endfor %}
+
+    </div>
+
+</div>
+
 </body>
 </html>
