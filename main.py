@@ -12,6 +12,8 @@ from dotenv import load_dotenv
 import re
 import unicodedata
 
+from fastapi.responses import HTMLResponse
+
 from fastapi.responses import StreamingResponse
 from openpyxl import Workbook
 from io import BytesIO
@@ -101,6 +103,21 @@ def crear_tabla():
         )
     """)
 
+    cursor.execute("""
+        ALTER TABLE messages
+        ADD COLUMN IF NOT EXISTS leido BOOLEAN DEFAULT FALSE
+    """)
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS contacts (
+            telefono TEXT PRIMARY KEY,
+            nombre TEXT,
+            direccion TEXT,
+            creado_en TEXT,
+            actualizado_en TEXT
+        )
+    """)
+
     conn.commit()
     conn.close()
 
@@ -130,7 +147,8 @@ def obtener_conversacion(numero):
         "direccion": "",
         "hora": "",
         "metodo_pago": "",
-        "notas": ""
+        "notas": "",
+        "confirmar_direccion_guardada": ""
     }
 
 def guardar_mensaje(telefono, nombre, mensaje, direccion):
@@ -138,13 +156,53 @@ def guardar_mensaje(telefono, nombre, mensaje, direccion):
     cursor = conn.cursor()
 
     cursor.execute("""
-        INSERT INTO messages (telefono, nombre, mensaje, direccion, fecha)
-        VALUES (%s, %s, %s, %s, %s)
+        INSERT INTO messages (telefono, nombre, mensaje, direccion, fecha, leido)
+        VALUES (%s, %s, %s, %s, %s, %s)
     """, (
         telefono,
         nombre,
         mensaje,
         direccion,
+        datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        True if direccion == "out" else False
+    ))
+
+    conn.commit()
+    conn.close()
+
+def obtener_contacto(telefono):
+    conn = get_connection()
+    cursor = conn.cursor(cursor_factory=RealDictCursor)
+
+    cursor.execute("""
+        SELECT *
+        FROM contacts
+        WHERE telefono = %s
+    """, (telefono,))
+
+    contacto = cursor.fetchone()
+    conn.close()
+
+    return contacto
+
+
+def guardar_contacto(telefono, nombre=None, direccion=None):
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        INSERT INTO contacts (telefono, nombre, direccion, creado_en, actualizado_en)
+        VALUES (%s, %s, %s, %s, %s)
+        ON CONFLICT (telefono)
+        DO UPDATE SET
+            nombre = COALESCE(EXCLUDED.nombre, contacts.nombre),
+            direccion = COALESCE(EXCLUDED.direccion, contacts.direccion),
+            actualizado_en = EXCLUDED.actualizado_en
+    """, (
+        telefono,
+        nombre,
+        direccion,
+        datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     ))
 
@@ -415,6 +473,35 @@ async def whatsapp(request: Request):
 
     mensaje_lower = mensaje.strip().lower()
 
+    pedido_actual = obtener_conversacion(numero)
+
+    if pedido_actual.get("confirmar_direccion_guardada"):
+        direccion_guardada = pedido_actual["confirmar_direccion_guardada"]
+
+        respuestas_si = ["si", "sí", "claro", "dale", "ok", "okay", "correcto", "yes"]
+
+        if mensaje_lower in respuestas_si:
+            pedido_actual["direccion"] = direccion_guardada
+        else:
+            pedido_actual["direccion"] = mensaje.strip()
+
+        pedido_actual["confirmar_direccion_guardada"] = ""
+
+        guardar_contacto(
+            numero,
+            pedido_actual.get("nombre") or None,
+            pedido_actual.get("direccion") or None
+        )
+
+        guardar_conversacion(numero, pedido_actual)
+
+        enviar_texto(
+            numero,
+            "Perfecto, ya tengo el número del local para este pedido."
+        )
+
+        return Response(content="EVENT_RECEIVED", media_type="text/plain")
+
     menu_pdf_url = f"{PUBLIC_BASE_URL}/static/menu.pdf"
     qr_url = f"{PUBLIC_BASE_URL}/static/qr_transferencia.jpeg"
 
@@ -424,6 +511,11 @@ async def whatsapp(request: Request):
         return Response(content="EVENT_RECEIVED", media_type="text/plain")
 
     pedido_actual = obtener_conversacion(numero)
+
+    contacto = obtener_contacto(numero)
+
+    if contacto and contacto.get("nombre"):
+        pedido_actual["nombre"] = contacto["nombre"]
 
     completion = client.chat.completions.create(
         model="gpt-4.1-mini",
@@ -568,6 +660,17 @@ Devuelve este JSON:
     print("IA:", data)
 
     pedido = json.loads(data)
+    contacto = obtener_contacto(numero)
+
+    if contacto and contacto.get("nombre") and not pedido.get("nombre"):
+        pedido["nombre"] = contacto["nombre"]
+
+    if pedido.get("nombre") or pedido.get("direccion"):
+        guardar_contacto(
+            numero,
+            pedido.get("nombre") or None,
+            pedido.get("direccion") or None
+        )
     guardar_conversacion(numero, pedido)
 
     tipo = pedido.get("tipo", "").lower()
@@ -595,6 +698,25 @@ Devuelve este JSON:
     productos_no_disponibles = pedido.get("productos_no_disponibles", [])
 
     tipo_entrega = pedido.get("tipo_entrega", "").strip().lower()
+
+    contacto = obtener_contacto(numero)
+
+    if (
+        contacto
+        and contacto.get("direccion")
+        and tipo_entrega == "domicilio"
+        and not pedido.get("direccion")
+    ):
+        pedido["confirmar_direccion_guardada"] = contacto["direccion"]
+        guardar_conversacion(numero, pedido)
+
+        enviar_texto(
+            numero,
+            f"Ya tenemos registrado este número de local: {contacto['direccion']}.\n\n"
+            "¿Deseas usar ese mismo número para este pedido? Responde 'sí' o envía el nuevo número."
+        )
+
+        return Response(content="EVENT_RECEIVED", media_type="text/plain")
 
     for campo in CAMPOS_OBLIGATORIOS:
         if campo == "direccion":
@@ -846,7 +968,18 @@ async def export_excel(fecha: str = None):
         }
     )
 
-from fastapi.responses import HTMLResponse
+@app.post("/clear/messages")
+async def clear_messages():
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    cursor.execute("DELETE FROM messages")
+    cursor.execute("DELETE FROM conversation_states")
+
+    conn.commit()
+    conn.close()
+
+    return {"status": "Chats borrados, contactos guardados"}
 
 @app.get("/privacy", response_class=HTMLResponse)
 async def privacy_policy():
@@ -938,7 +1071,11 @@ async def inbox(request: Request):
     cursor = conn.cursor(cursor_factory=RealDictCursor)
 
     cursor.execute("""
-        SELECT telefono, MAX(nombre) AS nombre, MAX(fecha) AS ultima_fecha
+        SELECT 
+            telefono,
+            MAX(nombre) AS nombre,
+            MAX(fecha) AS ultima_fecha,
+            COUNT(*) FILTER (WHERE direccion = 'in' AND leido = FALSE) AS no_leidos
         FROM messages
         GROUP BY telefono
         ORDER BY ultima_fecha DESC
@@ -953,10 +1090,87 @@ async def inbox(request: Request):
         {"chats": chats}
     )
 
+@app.get("/inbox/chats")
+async def inbox_chats():
+    conn = get_connection()
+    cursor = conn.cursor(cursor_factory=RealDictCursor)
+
+    cursor.execute("""
+        SELECT
+            telefono,
+            MAX(nombre) AS nombre,
+            MAX(fecha) AS ultima_fecha,
+            COUNT(*) FILTER (
+                WHERE direccion='in'
+                AND leido=FALSE
+            ) AS no_leidos
+        FROM messages
+        GROUP BY telefono
+        ORDER BY ultima_fecha DESC
+    """)
+
+    chats = cursor.fetchall()
+    conn.close()
+
+    html = ""
+
+    for chat in chats:
+
+        badge = ""
+
+        if chat["no_leidos"] > 0:
+            badge = f"""
+            <div class="badge">
+                {chat["no_leidos"]}
+            </div>
+            """
+
+        inicial = (chat["nombre"] or chat["telefono"])[0].upper()
+
+        html += f"""
+        <a class="chat" href="/chat/{chat['telefono']}">
+
+            <div class="avatar">
+                {inicial}
+            </div>
+
+            <div class="info">
+
+                <div class="nombre">
+                    {chat["nombre"] or chat["telefono"]}
+                </div>
+
+                <div class="telefono">
+                    {chat["telefono"]}
+                </div>
+
+                <div class="fecha">
+                    Último mensaje: {chat["ultima_fecha"]}
+                </div>
+
+            </div>
+
+            {badge}
+
+        </a>
+        """
+
+    return HTMLResponse(content=html)
+
 @app.get("/chat/{telefono}")
 async def chat(request: Request, telefono: str):
     conn = get_connection()
     cursor = conn.cursor(cursor_factory=RealDictCursor)
+
+    cursor.execute("""
+        UPDATE messages
+        SET leido = TRUE
+        WHERE telefono = %s
+        AND direccion = 'in'
+        AND leido = FALSE
+    """, (telefono,))
+
+    conn.commit()
 
     cursor.execute("""
         SELECT *
