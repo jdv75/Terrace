@@ -185,15 +185,45 @@
 
 <script>
 
-setInterval(() => {
+let unreadAnterior = 0;
+let primeraCarga = true;
+
+function reproducirSonido() {
+    const audio = new Audio("/static/notification.mp3");
+
+    audio.play().catch(() => {
+        // El navegador puede bloquear el sonido hasta que el usuario interactúe con la página.
+    });
+}
+
+function actualizarInbox() {
 
     fetch("/inbox/chats")
         .then(response => response.text())
         .then(html => {
+
             document.getElementById("chat-list").innerHTML = html;
+
+            let unreadActual = 0;
+
+            document.querySelectorAll(".badge").forEach(badge => {
+                unreadActual += parseInt(badge.innerText) || 0;
+            });
+
+            if (!primeraCarga && unreadActual > unreadAnterior) {
+                reproducirSonido();
+            }
+
+            unreadAnterior = unreadActual;
+            primeraCarga = false;
+
         });
 
-}, 3000);
+}
+
+actualizarInbox();
+
+setInterval(actualizarInbox, 3000);
 
 </script>
 
