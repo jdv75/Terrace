@@ -154,25 +154,80 @@
             {% endfor %}
         </div>
 
-        <form action="/manual/send" method="post" class="form-box">
+        <form id="sendForm" action="/manual/send" method="post" class="form-box">
             <input type="hidden" name="telefono" value="{{ telefono }}">
 
-            <textarea name="mensaje" placeholder="Escribe tu respuesta..." required></textarea>
+            <textarea
+                id="mensaje"
+                name="mensaje"
+                placeholder="Escribe tu respuesta..."
+                required></textarea>
 
             <button type="submit">Enviar por WhatsApp</button>
         </form>
 
     </div>
 
-    <script>
-        setInterval(() => {
-            fetch("/chat/{{ telefono }}/messages")
-                .then(response => response.text())
-                .then(html => {
-                    document.getElementById("messages").innerHTML = html;
-                });
-        }, 3000);
-    </script>
+<script>
+
+const messages = document.getElementById("messages");
+
+// Mantener el chat abajo al abrir
+messages.scrollTop = messages.scrollHeight;
+
+
+// Actualizar mensajes
+setInterval(() => {
+
+    fetch("/chat/{{ telefono }}/messages")
+        .then(r => r.text())
+        .then(html => {
+
+            const estabaAbajo =
+                messages.scrollHeight - messages.scrollTop <= messages.clientHeight + 50;
+
+            messages.innerHTML = html;
+
+            if (estabaAbajo){
+                messages.scrollTop = messages.scrollHeight;
+            }
+
+        });
+
+},3000);
+
+
+// Enviar sin recargar
+document.getElementById("sendForm").addEventListener("submit", async function(e){
+
+    e.preventDefault();
+
+    const form = new FormData(this);
+
+    await fetch("/manual/send",{
+        method:"POST",
+        body:form
+    });
+
+    document.getElementById("mensaje").value="";
+
+    // Espera medio segundo para que Meta responda
+    setTimeout(()=>{
+
+        fetch("/chat/{{ telefono }}/messages")
+            .then(r=>r.text())
+            .then(html=>{
+
+                messages.innerHTML=html;
+                messages.scrollTop=messages.scrollHeight;
+
+            });
+
+    },500);
+
+});
+
+</script>
 
 </body>
 </html>

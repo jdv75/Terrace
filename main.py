@@ -808,7 +808,7 @@ async def enviar_manual(request: Request):
     if telefono and mensaje:
         enviar_texto(telefono, mensaje)
 
-    return RedirectResponse(url=f"/chat/{telefono}", status_code=303)
+    return {"success": True}
 
 @app.get("/dashboard")
 async def dashboard(request: Request):
