@@ -163,7 +163,7 @@
         }
     };
 
-    async function launchWhatsAppSignup() {
+    function launchWhatsAppSignup() {
         if (!metaSdkReady || typeof FB === "undefined") {
             statusBox.textContent =
                 "❌ Meta todavía no ha cargado. Recarga la página.";
@@ -177,61 +177,10 @@
 
         try {
             FB.login(
-                async function (response) {
+                function (response) {
                     console.log("Respuesta de FB.login:", response);
 
-                    if (
-                        !response ||
-                        !response.authResponse ||
-                        !response.authResponse.code
-                    ) {
-                        statusBox.textContent =
-                            "El proceso fue cancelado o Meta no devolvió autorización.";
-
-                        connectBtn.disabled = false;
-                        return;
-                    }
-
-                    statusBox.textContent = "Guardando la conexión...";
-
-                    try {
-                        const result = await fetch(
-                            "/embedded-signup/callback",
-                            {
-                                method: "POST",
-                                headers: {
-                                    "Content-Type": "application/json"
-                                },
-                                body: JSON.stringify({
-                                    code: response.authResponse.code,
-                                    session: embeddedSession
-                                })
-                            }
-                        );
-
-                        const data = await result.json();
-
-                        if (!result.ok) {
-                            throw new Error(
-                                data.detail
-                                    ? JSON.stringify(data.detail)
-                                    : "Error desconocido"
-                            );
-                        }
-
-                        statusBox.textContent =
-                            "✅ WhatsApp conectado correctamente.";
-
-                        console.log("Cuenta conectada:", data);
-                    } catch (error) {
-                        console.error("Error guardando conexión:", error);
-
-                        statusBox.textContent =
-                            "❌ No se pudo guardar la conexión: " +
-                            error.message;
-
-                        connectBtn.disabled = false;
-                    }
+                    processLoginResponse(response);
                 },
                 {
                     config_id: {{ meta_config_id | tojson }},
@@ -248,6 +197,62 @@
 
             statusBox.textContent =
                 "❌ No se pudo abrir Meta: " + error.message;
+
+            connectBtn.disabled = false;
+        }
+    }
+
+    async function processLoginResponse(response) {
+        if (
+            !response ||
+            !response.authResponse ||
+            !response.authResponse.code
+        ) {
+            statusBox.textContent =
+                "El proceso fue cancelado o Meta no devolvió autorización.";
+
+            connectBtn.disabled = false;
+            return;
+        }
+
+        statusBox.textContent = "Guardando la conexión...";
+
+        try {
+            const result = await fetch(
+                "/embedded-signup/callback",
+                {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({
+                        code: response.authResponse.code,
+                        session: embeddedSession
+                    })
+                }
+            );
+
+            const data = await result.json();
+
+            if (!result.ok) {
+                throw new Error(
+                    data.detail
+                        ? JSON.stringify(data.detail)
+                        : "Error desconocido"
+                );
+            }
+
+            statusBox.textContent =
+                "✅ WhatsApp conectado correctamente.";
+
+            console.log("Cuenta conectada:", data);
+
+        } catch (error) {
+            console.error("Error guardando conexión:", error);
+
+            statusBox.textContent =
+                "❌ No se pudo guardar la conexión: " +
+                error.message;
 
             connectBtn.disabled = false;
         }
