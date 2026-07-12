@@ -1,7 +1,7 @@
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, HTTPException
 import requests
 from openai import OpenAI
-from fastapi.responses import Response, RedirectResponse
+from fastapi.responses import Response, RedirectResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 import psycopg2
 from psycopg2.extras import RealDictCursor
@@ -35,6 +35,10 @@ META_ACCESS_TOKEN = os.getenv("META_ACCESS_TOKEN")
 META_PHONE_NUMBER_ID = os.getenv("META_PHONE_NUMBER_ID")
 META_VERIFY_TOKEN = os.getenv("META_VERIFY_TOKEN")
 PUBLIC_BASE_URL = os.getenv("PUBLIC_BASE_URL", "https://consult-unsent-undying.ngrok-free.dev")
+META_APP_ID = os.getenv("META_APP_ID")
+META_APP_SECRET = os.getenv("META_APP_SECRET")
+META_CONFIG_ID = os.getenv("META_CONFIG_ID", "1200748898865773")
+META_GRAPH_VERSION = os.getenv("META_GRAPH_VERSION", "v25.0")
 
 def get_connection():
     return psycopg2.connect(DATABASE_URL)
@@ -115,6 +119,19 @@ def crear_tabla():
             direccion TEXT,
             creado_en TEXT,
             actualizado_en TEXT
+        )
+    """)
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS whatsapp_accounts (
+            id SERIAL PRIMARY KEY,
+            waba_id TEXT UNIQUE NOT NULL,
+            phone_number_id TEXT,
+            business_id TEXT,
+            access_token TEXT NOT NULL,
+            token_expires_at TIMESTAMP,
+            connected_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            active BOOLEAN DEFAULT TRUE
         )
     """)
 
@@ -798,6 +815,252 @@ Devuelve este JSON:
 
     return Response(content="EVENT_RECEIVED", media_type="text/plain")
 
+
+
+@app.get("/connect-whatsapp", response_class=HTMLResponse)
+async def connect_whatsapp_page():
+    if not META_APP_ID:
+        return HTMLResponse(
+            "<h2>Falta META_APP_ID en las variables de entorno.</h2>",
+            status_code=500,
+        )
+
+    return HTMLResponse(f"""
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Conectar WhatsApp | Terrace</title>
+    <style>
+        * {{ box-sizing: border-box; font-family: Segoe UI, Arial, sans-serif; }}
+        body {{ margin: 0; min-height: 100vh; display: grid; place-items: center; background: #f3f4f6; }}
+        .box {{ width: min(560px, 92%); background: white; padding: 34px; border-radius: 18px;
+                box-shadow: 0 12px 32px rgba(0,0,0,.10); text-align: center; }}
+        h1 {{ margin-top: 0; color: #111827; }}
+        p {{ color: #4b5563; line-height: 1.55; }}
+        button {{ border: 0; background: #16a34a; color: white; padding: 14px 22px;
+                  border-radius: 12px; font-size: 16px; font-weight: 700; cursor: pointer; }}
+        button:disabled {{ opacity: .6; cursor: wait; }}
+        #status {{ margin-top: 18px; font-weight: 600; }}
+        a {{ display: inline-block; margin-top: 22px; color: #2563eb; text-decoration: none; }}
+    </style>
+</head>
+<body>
+<div class="box">
+    <h1>Conectar WhatsApp Business</h1>
+    <p>Inicia el registro insertado de Meta para autorizar la cuenta de WhatsApp Business.</p>
+    <button id="connectBtn" type="button" onclick="launchWhatsAppSignup()">Conectar WhatsApp</button>
+    <div id="status"></div>
+    <a href="/dashboard">← Volver al dashboard</a>
+</div>
+
+<script>
+let embeddedSession = null;
+const statusBox = document.getElementById("status");
+const connectBtn = document.getElementById("connectBtn");
+
+window.addEventListener("message", (event) => {{
+    if (event.origin !== "https://www.facebook.com" &&
+        event.origin !== "https://web.facebook.com") return;
+
+    let data = event.data;
+    try {{
+        if (typeof data === "string") data = JSON.parse(data);
+    }} catch (_) {{ return; }}
+
+    if (data && data.type === "WA_EMBEDDED_SIGNUP") {{
+        embeddedSession = data;
+        console.log("WA_EMBEDDED_SIGNUP", data);
+    }}
+}});
+
+window.fbAsyncInit = function() {{
+    FB.init({{
+        appId: "{META_APP_ID}",
+        cookie: true,
+        xfbml: true,
+        version: "{META_GRAPH_VERSION}"
+    }});
+}};
+
+function launchWhatsAppSignup() {{
+    statusBox.textContent = "Abriendo Meta...";
+    connectBtn.disabled = true;
+
+    FB.login(async function(response) {{
+        if (!response.authResponse || !response.authResponse.code) {{
+            statusBox.textContent = "El proceso fue cancelado o no se obtuvo autorización.";
+            connectBtn.disabled = false;
+            return;
+        }}
+
+        statusBox.textContent = "Guardando la conexión...";
+
+        try {{
+            const result = await fetch("/embedded-signup/callback", {{
+                method: "POST",
+                headers: {{ "Content-Type": "application/json" }},
+                body: JSON.stringify({{
+                    code: response.authResponse.code,
+                    session: embeddedSession
+                }})
+            }});
+
+            const data = await result.json();
+            if (!result.ok) throw new Error(data.detail ? JSON.stringify(data.detail) : "Error desconocido");
+
+            statusBox.textContent = "✅ WhatsApp conectado correctamente.";
+            console.log("Cuenta conectada", data);
+        }} catch (error) {{
+            console.error(error);
+            statusBox.textContent = "❌ No se pudo completar la conexión: " + error.message;
+            connectBtn.disabled = false;
+        }}
+    }}, {{
+        config_id: "{META_CONFIG_ID}",
+        response_type: "code",
+        override_default_response_type: true,
+        extras: {{
+            setup: {{}},
+            featureType: "",
+            sessionInfoVersion: "3"
+        }}
+    }});
+}}
+</script>
+<script async defer crossorigin="anonymous" src="https://connect.facebook.net/es_LA/sdk.js"></script>
+</body>
+</html>
+    """)
+
+@app.post("/embedded-signup/callback")
+async def embedded_signup_callback(request: Request):
+    """Intercambia el código de Embedded Signup por un business token y guarda la cuenta."""
+    if not META_APP_ID or not META_APP_SECRET:
+        raise HTTPException(
+            status_code=500,
+            detail="Faltan META_APP_ID y/o META_APP_SECRET en las variables de entorno."
+        )
+
+    payload = await request.json()
+    code = payload.get("code")
+    session = payload.get("session") or {}
+
+    if not code:
+        raise HTTPException(status_code=400, detail="No se recibió el código de autorización.")
+
+    token_response = requests.get(
+        f"https://graph.facebook.com/{META_GRAPH_VERSION}/oauth/access_token",
+        params={
+            "client_id": META_APP_ID,
+            "client_secret": META_APP_SECRET,
+            "code": code,
+        },
+        timeout=30,
+    )
+
+    if not token_response.ok:
+        print("ERROR CAMBIANDO CODE:", token_response.status_code, token_response.text)
+        raise HTTPException(status_code=400, detail=token_response.json())
+
+    token_data = token_response.json()
+    business_token = token_data.get("access_token")
+    expires_in = token_data.get("expires_in")
+
+    if not business_token:
+        raise HTTPException(status_code=400, detail="Meta no devolvió un access_token.")
+
+    # Embedded Signup puede enviar estos datos dentro de data.
+    session_data = session.get("data", session) if isinstance(session, dict) else {}
+    waba_id = session_data.get("waba_id")
+    phone_number_id = session_data.get("phone_number_id")
+    business_id = session_data.get("business_id")
+
+    if not waba_id:
+        raise HTTPException(
+            status_code=400,
+            detail="No se recibió waba_id. Completa el flujo y vuelve a intentarlo."
+        )
+
+    # Suscribe esta app a los webhooks de la WABA conectada.
+    subscribe_response = requests.post(
+        f"https://graph.facebook.com/{META_GRAPH_VERSION}/{waba_id}/subscribed_apps",
+        headers={"Authorization": f"Bearer {business_token}"},
+        timeout=30,
+    )
+
+    if not subscribe_response.ok:
+        print("ERROR SUBSCRIBING APP:", subscribe_response.status_code, subscribe_response.text)
+
+    # Si el evento no incluyó phone_number_id, lo consultamos a Meta.
+    if not phone_number_id:
+        phones_response = requests.get(
+            f"https://graph.facebook.com/{META_GRAPH_VERSION}/{waba_id}/phone_numbers",
+            headers={"Authorization": f"Bearer {business_token}"},
+            timeout=30,
+        )
+        if phones_response.ok:
+            phones = phones_response.json().get("data", [])
+            if phones:
+                phone_number_id = phones[0].get("id")
+
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        INSERT INTO whatsapp_accounts (
+            waba_id, phone_number_id, business_id, access_token,
+            token_expires_at, connected_at, active
+        )
+        VALUES (
+            %s, %s, %s, %s,
+            CASE WHEN %s IS NULL THEN NULL
+                 ELSE CURRENT_TIMESTAMP + (%s * INTERVAL '1 second') END,
+            CURRENT_TIMESTAMP, TRUE
+        )
+        ON CONFLICT (waba_id)
+        DO UPDATE SET
+            phone_number_id = EXCLUDED.phone_number_id,
+            business_id = EXCLUDED.business_id,
+            access_token = EXCLUDED.access_token,
+            token_expires_at = EXCLUDED.token_expires_at,
+            connected_at = CURRENT_TIMESTAMP,
+            active = TRUE
+    """, (
+        waba_id,
+        phone_number_id,
+        business_id,
+        business_token,
+        expires_in,
+        expires_in,
+    ))
+    conn.commit()
+    conn.close()
+
+    return JSONResponse({
+        "success": True,
+        "waba_id": waba_id,
+        "phone_number_id": phone_number_id,
+        "business_id": business_id,
+        "token_expires_in": expires_in,
+        "webhook_subscribed": subscribe_response.ok,
+    })
+
+@app.get("/embedded-signup/status")
+async def embedded_signup_status():
+    conn = get_connection()
+    cursor = conn.cursor(cursor_factory=RealDictCursor)
+    cursor.execute("""
+        SELECT waba_id, phone_number_id, business_id, token_expires_at,
+               connected_at, active
+        FROM whatsapp_accounts
+        ORDER BY connected_at DESC
+        LIMIT 1
+    """)
+    account = cursor.fetchone()
+    conn.close()
+    return {"connected": bool(account), "account": account}
+
 @app.post("/manual/send")
 async def enviar_manual(request: Request):
     form = await request.form()
@@ -844,7 +1107,11 @@ async def dashboard(request: Request):
     return templates.TemplateResponse(
         request,
         "dashboard.html",
-        {"orders": orders_with_items}
+        {
+            "orders": orders_with_items,
+            "meta_app_id": META_APP_ID or "",
+            "meta_config_id": META_CONFIG_ID
+        }
     )
 
 
