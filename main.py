@@ -818,121 +818,23 @@ Devuelve este JSON:
 
 
 @app.get("/connect-whatsapp", response_class=HTMLResponse)
-async def connect_whatsapp_page():
+async def connect_whatsapp_page(request: Request):
     if not META_APP_ID:
         return HTMLResponse(
             "<h2>Falta META_APP_ID en las variables de entorno.</h2>",
             status_code=500,
         )
 
-    return HTMLResponse(f"""
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Conectar WhatsApp | Terrace</title>
-    <style>
-        * {{ box-sizing: border-box; font-family: Segoe UI, Arial, sans-serif; }}
-        body {{ margin: 0; min-height: 100vh; display: grid; place-items: center; background: #f3f4f6; }}
-        .box {{ width: min(560px, 92%); background: white; padding: 34px; border-radius: 18px;
-                box-shadow: 0 12px 32px rgba(0,0,0,.10); text-align: center; }}
-        h1 {{ margin-top: 0; color: #111827; }}
-        p {{ color: #4b5563; line-height: 1.55; }}
-        button {{ border: 0; background: #16a34a; color: white; padding: 14px 22px;
-                  border-radius: 12px; font-size: 16px; font-weight: 700; cursor: pointer; }}
-        button:disabled {{ opacity: .6; cursor: wait; }}
-        #status {{ margin-top: 18px; font-weight: 600; }}
-        a {{ display: inline-block; margin-top: 22px; color: #2563eb; text-decoration: none; }}
-    </style>
-</head>
-<body>
-<div class="box">
-    <h1>Conectar WhatsApp Business</h1>
-    <p>Inicia el registro insertado de Meta para autorizar la cuenta de WhatsApp Business.</p>
-    <button id="connectBtn" type="button" onclick="launchWhatsAppSignup()">Conectar WhatsApp</button>
-    <div id="status"></div>
-    <a href="/dashboard">← Volver al dashboard</a>
-</div>
+    return templates.TemplateResponse(
+        request=request,
+        name="connect_whatsapp.html",
+        context={
+            "meta_app_id": META_APP_ID,
+            "meta_config_id": META_CONFIG_ID,
+            "meta_graph_version": META_GRAPH_VERSION,
+        },
+    )
 
-<script>
-let embeddedSession = null;
-const statusBox = document.getElementById("status");
-const connectBtn = document.getElementById("connectBtn");
-
-window.addEventListener("message", (event) => {{
-    if (event.origin !== "https://www.facebook.com" &&
-        event.origin !== "https://web.facebook.com") return;
-
-    let data = event.data;
-    try {{
-        if (typeof data === "string") data = JSON.parse(data);
-    }} catch (_) {{ return; }}
-
-    if (data && data.type === "WA_EMBEDDED_SIGNUP") {{
-        embeddedSession = data;
-        console.log("WA_EMBEDDED_SIGNUP", data);
-    }}
-}});
-
-window.fbAsyncInit = function() {{
-    FB.init({{
-        appId: "{META_APP_ID}",
-        cookie: true,
-        xfbml: true,
-        version: "{META_GRAPH_VERSION}"
-    }});
-}};
-
-function launchWhatsAppSignup() {{
-    statusBox.textContent = "Abriendo Meta...";
-    connectBtn.disabled = true;
-
-    FB.login(async function(response) {{
-        if (!response.authResponse || !response.authResponse.code) {{
-            statusBox.textContent = "El proceso fue cancelado o no se obtuvo autorización.";
-            connectBtn.disabled = false;
-            return;
-        }}
-
-        statusBox.textContent = "Guardando la conexión...";
-
-        try {{
-            const result = await fetch("/embedded-signup/callback", {{
-                method: "POST",
-                headers: {{ "Content-Type": "application/json" }},
-                body: JSON.stringify({{
-                    code: response.authResponse.code,
-                    session: embeddedSession
-                }})
-            }});
-
-            const data = await result.json();
-            if (!result.ok) throw new Error(data.detail ? JSON.stringify(data.detail) : "Error desconocido");
-
-            statusBox.textContent = "✅ WhatsApp conectado correctamente.";
-            console.log("Cuenta conectada", data);
-        }} catch (error) {{
-            console.error(error);
-            statusBox.textContent = "❌ No se pudo completar la conexión: " + error.message;
-            connectBtn.disabled = false;
-        }}
-    }}, {{
-        config_id: "{META_CONFIG_ID}",
-        response_type: "code",
-        override_default_response_type: true,
-        extras: {{
-            setup: {{}},
-            featureType: "",
-            sessionInfoVersion: "3"
-        }}
-    }});
-}}
-</script>
-<script async defer crossorigin="anonymous" src="https://connect.facebook.net/es_LA/sdk.js"></script>
-</body>
-</html>
-    """)
 
 @app.post("/embedded-signup/callback")
 async def embedded_signup_callback(request: Request):
