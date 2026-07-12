@@ -456,6 +456,11 @@ async def verificar_webhook(request: Request):
 
 @app.post("/whatsapp")
 async def whatsapp(request: Request):
+
+    print("<<<<<<<<<<<< LLEGÓ UN WEBHOOK >>>>>>>>>>>>")
+    body = await request.json()
+    print(json.dumps(body, indent=2, ensure_ascii=False))
+    
     body = await request.json()
     print("META WEBHOOK:", json.dumps(body, ensure_ascii=False))
 
