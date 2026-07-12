@@ -835,7 +835,6 @@ async def dashboard(request: Request):
     """)
 
     orders = cursor.fetchall()
-
     orders_with_items = []
 
     for order in orders:
@@ -855,12 +854,10 @@ async def dashboard(request: Request):
     conn.close()
 
     return templates.TemplateResponse(
-        request,
-        "dashboard.html",
-        {
-            "orders": orders_with_items,
-            "meta_app_id": META_APP_ID or "",
-            "meta_config_id": META_CONFIG_ID
+        request=request,
+        name="dashboard.html",
+        context={
+            "orders": orders_with_items
         }
     )
 
