@@ -460,7 +460,7 @@ async def whatsapp(request: Request):
     print("<<<<<<<<<<<< LLEGÓ UN WEBHOOK >>>>>>>>>>>>")
     body = await request.json()
     print(json.dumps(body, indent=2, ensure_ascii=False))
-    
+
     body = await request.json()
     print("META WEBHOOK:", json.dumps(body, ensure_ascii=False))
 
@@ -624,6 +624,37 @@ Transferencia
 Si conoces la respuesta usando esta información, responde naturalmente.
 
 Si no tienes la información, responde que no estás seguro y ofrece ayuda.
+
+Cuando el cliente indique el número del local, acepta cualquier formato de local comercial.
+
+Ejemplos válidos:
+
+L3-26
+L2-52
+L1-103
+P3-31
+P4-24(P17)
+P4-25(P17)
+26
+26A
+
+Si el mensaje contiene únicamente uno de estos identificadores, interprétalo como el valor del campo "direccion".
+
+NO es obligatorio que el cliente escriba la palabra "local".
+
+Por ejemplo:
+
+"L3-26"
+→ direccion = "L3-26"
+
+"P3-31"
+→ direccion = "P3-31"
+
+"26"
+→ direccion = "26"
+
+"P4-24(P17)"
+→ direccion = "P4-24(P17)"
 
 Reglas:
 - No borres información que ya existe.
@@ -807,7 +838,7 @@ Devuelve este JSON:
         preguntas = {
             "nombre": "Perfecto. ¿A nombre de quien la orden?",
             "items": "¿Qué productos deseas ordenar y en qué cantidades?",
-            "tipo_entrega": "¿Es para recoger o domicilio?",
+            "tipo_entrega": "¿Es para llevar a un local o pasas a recoger?",
             "direccion": "¿Cuál es el numero del local?",
             "metodo_pago": "¿Cuál será el método de pago, tenemos efectivo o transferencia?"
         }
@@ -881,6 +912,32 @@ async def cambiar_estado(order_id: int, estado: str):
     conn.close()
 
     return RedirectResponse(url="/dashboard", status_code=303)
+
+@app.post("/orders/{order_id}/cancel")
+async def cancelar_pedido(order_id: int):
+
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    # Primero borrar los productos
+    cursor.execute("""
+        DELETE FROM order_items
+        WHERE order_id = %s
+    """, (order_id,))
+
+    # Después borrar el pedido
+    cursor.execute("""
+        DELETE FROM orders
+        WHERE id = %s
+    """, (order_id,))
+
+    conn.commit()
+    conn.close()
+
+    return RedirectResponse(
+        url="/dashboard",
+        status_code=303
+    )
 
 @app.get("/export/excel")
 async def export_excel(fecha: str = None):

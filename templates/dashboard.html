@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <!-- <meta http-equiv="refresh" content="5"> -->
-<title>Vertex Forge | Orders Dashboard</title>
+<title>Terrace | Orders Dashboard</title>
 
 <style>
 
@@ -344,6 +344,14 @@ Order #{{ data["order"]["id"] }}
 <form action="/orders/{{ data['order']['id'] }}/estado/entregado" method="post">
 <button class="entregado">
 📦 Delivered
+</button>
+</form>
+
+<form action="/orders/{{ data['order']['id'] }}/cancel" method="post"
+      onsubmit="return confirm('¿Seguro que deseas cancelar este pedido?');">
+<button
+    style="background:#dc2626;">
+❌ Cancel Order
 </button>
 </form>
 
