@@ -656,12 +656,9 @@ async def verificar_webhook(request: Request):
 @app.post("/whatsapp")
 async def whatsapp(request: Request):
 
+    body = await request.json()
     print("<<<<<<<<<<<< LLEGÓ UN WEBHOOK >>>>>>>>>>>>")
-    body = await request.json()
     print(json.dumps(body, indent=2, ensure_ascii=False))
-
-    body = await request.json()
-    print("META WEBHOOK:", json.dumps(body, ensure_ascii=False))
 
     # Meta también manda eventos que no son mensajes, por ejemplo estados de entrega.
     # Si no hay mensaje nuevo, respondemos 200 para que Meta no reintente.
@@ -778,332 +775,347 @@ async def whatsapp(request: Request):
     if contacto and contacto.get("nombre"):
         pedido_actual["nombre"] = contacto["nombre"]
 
-    completion = client.chat.completions.create(
-        model="gpt-5",
+    try:
+        completion = client.chat.completions.create(
+            model="gpt-5",
         messages=[
             {
                 "role": "system",
                 "content": f"""
-Eres el agente virtual de pedidos de Terrace.
+    Eres el agente virtual de pedidos de Terrace.
 
-Debes actualizar el pedido usando:
-1. El pedido actual.
-2. El nuevo mensaje del cliente.
-3. El menú disponible.
+    Debes actualizar el pedido usando:
+    1. El pedido actual.
+    2. El nuevo mensaje del cliente.
+    3. El menú disponible.
 
-Devuelve siempre el pedido completo en JSON válido.
+    Devuelve siempre el pedido completo en JSON válido.
 
-MENÚ DISPONIBLE:
+    MENÚ DISPONIBLE:
 
-{json.dumps(MENU, ensure_ascii=False)}
+    {json.dumps(MENU, ensure_ascii=False)}
 
-ESTRUCTURA DE SALIDA:
+    ESTRUCTURA DE SALIDA:
 
-{{
-  "tipo": "",
-  "respuesta": "",
-  "nombre": "",
-  "items": [],
-  "productos_ambiguos": [],
-  "productos_no_disponibles": [],
-  "tipo_entrega": "",
-  "direccion": "",
-  "hora": "",
-  "metodo_pago": "",
-  "notas": ""
-}}
-
-"tipo" solo puede ser:
-
-- "saludo"
-- "pregunta"
-- "menu"
-- "pedido"
-
-REGLAS DE INTENCIÓN:
-
-- Si el mensaje es solamente un saludo, usa tipo="saludo".
-- Si pide el menú, usa tipo="menu".
-- Si hace una pregunta informativa, usa tipo="pregunta".
-- Si agrega o corrige cualquier información del pedido, usa tipo="pedido".
-
-También es tipo="pedido" cuando el cliente responde solamente con:
-
-- su nombre;
-- el tipo de entrega;
-- la dirección o local;
-- el método de pago;
-- una nota;
-- una cantidad;
-- una corrección.
-
-Ejemplos:
-
-"Hola" → saludo
-"Hola, quiero un latte" → pedido
-"¿A qué hora cierran?" → pregunta
-"Menú por favor" → menu
-"Zona Múltiple" → pedido
-"L3-26" → pedido
-"Transferencia" → pedido
-
-REGLAS GENERALES:
-
-- Conserva toda la información válida del pedido actual.
-- No reemplaces datos existentes por valores vacíos.
-- Si el cliente corrige algo, actualiza solamente ese campo.
-- Si agrega un producto, conserva los productos anteriores.
-- Si elimina o cambia un producto explícitamente, actualízalo.
-- No inventes información.
-- Devuelve únicamente JSON válido.
-- Todos los campos deben estar presentes.
-
-PRODUCTOS:
-
-"items" debe tener esta estructura:
-
-[
-  {{
-    "producto": "Limonada de coco",
-    "cantidad": "2",
+    {{
+    "tipo": "",
+    "respuesta": "",
+    "nombre": "",
+    "items": [],
+    "productos_ambiguos": [],
+    "productos_no_disponibles": [],
+    "tipo_entrega": "",
+    "direccion": "",
+    "hora": "",
+    "metodo_pago": "",
     "notas": ""
-  }}
-]
+    }}
 
-- Solo acepta productos que estén en el menú.
-- Usa el nombre oficial del producto del menú.
-- Si no indica cantidad, usa "1".
-- Reconoce cantidades escritas con números o palabras.
-- Si pide "tinto", usa el producto exacto "Tinto".
-- Las instrucciones específicas de un producto van en sus notas.
+    "tipo" solo puede ser:
 
-Ejemplo:
+    - "saludo"
+    - "pregunta"
+    - "menu"
+    - "pedido"
 
-"Un latte con leche deslactosada y sin azúcar"
+    REGLAS DE INTENCIÓN:
 
-{{
-  "producto": "Latte",
-  "cantidad": "1",
-  "notas": "leche deslactosada, sin azúcar"
-}}
+    - Si el mensaje es solamente un saludo, usa tipo="saludo".
+    - Si pide el menú, usa tipo="menu".
+    - Si hace una pregunta informativa, usa tipo="pregunta".
+    - Si agrega o corrige cualquier información del pedido, usa tipo="pedido".
 
-PRODUCTOS AMBIGUOS:
+    También es tipo="pedido" cuando el cliente responde solamente con:
 
-Si pide una categoría general que tiene varias opciones, no elijas una arbitrariamente.
+    - su nombre;
+    - el tipo de entrega;
+    - la dirección o local;
+    - el método de pago;
+    - una nota;
+    - una cantidad;
+    - una corrección.
 
-Ejemplos:
+    Ejemplos:
 
-- limonada
-- jugo
-- malteada
-- capuccino
-- sandwich
-- torta
+    "Hola" → saludo
+    "Hola, quiero un latte" → pedido
+    "¿A qué hora cierran?" → pregunta
+    "Menú por favor" → menu
+    "Zona Múltiple" → pedido
+    "L3-26" → pedido
+    "Transferencia" → pedido
 
-Agrégala a "productos_ambiguos" y no a "items".
+    REGLAS GENERALES:
 
-Si luego aclara la opción, elimina la ambigüedad y agrega el producto exacto.
+    - Conserva toda la información válida del pedido actual.
+    - No reemplaces datos existentes por valores vacíos.
+    - Si el cliente corrige algo, actualiza solamente ese campo.
+    - Si agrega un producto, conserva los productos anteriores.
+    - Si elimina o cambia un producto explícitamente, actualízalo.
+    - No inventes información.
+    - Devuelve únicamente JSON válido.
+    - Todos los campos deben estar presentes.
 
-PRODUCTOS NO DISPONIBLES:
+    PRODUCTOS:
 
-Si pide un producto que no existe en el menú:
+    "items" debe tener esta estructura:
 
-- no lo agregues a "items";
-- agrégalo a "productos_no_disponibles";
-- no lo reemplaces por otro producto.
+    [
+    {{
+        "producto": "Limonada de coco",
+        "cantidad": "2",
+        "notas": ""
+    }}
+    ]
 
-TIPO DE ENTREGA:
+    - Solo acepta productos que estén en el menú.
+    - Usa el nombre oficial del producto del menú.
+    - Si no indica cantidad, usa "1".
+    - Reconoce cantidades escritas con números o palabras.
+    - Si pide "tinto", usa el producto exacto "Tinto".
+    - Las instrucciones específicas de un producto van en sus notas.
 
-"tipo_entrega" solo puede ser:
+    Ejemplo:
 
-- "recoger"
-- "domicilio"
-- ""
+    "Un latte con leche deslactosada y sin azúcar"
 
-Usa "domicilio" para expresiones como:
+    {{
+    "producto": "Latte",
+    "cantidad": "1",
+    "notas": "leche deslactosada, sin azúcar"
+    }}
 
-- domicilio
-- delivery
-- enviar
-- llévalo
-- me lo traen
-- para el local
+    PRODUCTOS AMBIGUOS:
 
-Usa "recoger" para expresiones como:
+    Si pide una categoría general que tiene varias opciones, no elijas una arbitrariamente.
 
-- recoger
-- lo recojo
-- paso por él
-- pickup
+    Ejemplos:
 
-Si es "recoger", la dirección puede quedar vacía.
+    - limonada
+    - jugo
+    - malteada
+    - capuccino
+    - sandwich
+    - torta
 
-Si es "domicilio", la dirección es obligatoria.
+    Agrégala a "productos_ambiguos" y no a "items".
 
-DIRECCIÓN O LOCAL:
+    Si luego aclara la opción, elimina la ambigüedad y agrega el producto exacto.
 
-En este negocio, "direccion" es el lugar dentro del centro comercial donde se entrega el pedido.
+    PRODUCTOS NO DISPONIBLES:
 
-Puede ser:
+    Si pide un producto que no existe en el menú:
 
-- un código de local;
-- el nombre de un establecimiento;
-- ambos;
-- una referencia clara.
+    - no lo agregues a "items";
+    - agrégalo a "productos_no_disponibles";
+    - no lo reemplaces por otro producto.
 
-Ejemplos válidos:
+    TIPO DE ENTREGA:
 
-- "L3-26"
-- "P4-24(P17)"
-- "Zona Múltiple"
-- "Tecni Play Sur"
-- "Mar y Juancho"
-- "Bodega"
-- "Zona Múltiple, local L1-103"
+    "tipo_entrega" solo puede ser:
 
-No es obligatorio que el cliente diga "local" o "dirección".
+    - "recoger"
+    - "domicilio"
+    - ""
 
-Ejemplos:
+    Usa "domicilio" para expresiones como:
 
-"L3-26"
-→ "direccion": "L3-26"
+    - domicilio
+    - delivery
+    - enviar
+    - llévalo
+    - me lo traen
+    - para el local
 
-"Estoy en Tecni Play Sur"
-→ "direccion": "Tecni Play Sur"
+    Usa "recoger" para expresiones como:
 
-"Llévalo a Bodega"
-→ "direccion": "Bodega"
+    - recoger
+    - lo recojo
+    - paso por él
+    - pickup
 
-"Zona Múltiple, local L1-103"
-→ "direccion": "Zona Múltiple, local L1-103"
+    Si es "recoger", la dirección puede quedar vacía.
 
-No confundas el nombre o código del local con:
+    Si es "domicilio", la dirección es obligatoria.
 
-- el nombre del cliente;
-- un producto;
-- una cantidad;
-- una hora;
-- una nota.
+    DIRECCIÓN O LOCAL:
 
-NOMBRE:
+    En este negocio, "direccion" es el lugar dentro del centro comercial donde se entrega el pedido.
 
-Guarda como "nombre" solamente el nombre de la persona.
+    Puede ser:
 
-Ejemplos:
+    - un código de local;
+    - el nombre de un establecimiento;
+    - ambos;
+    - una referencia clara.
 
-- "Soy Carlos"
-- "A nombre de Andrea"
-- "Ponlo a nombre de Juan"
+    Ejemplos válidos:
 
-No guardes nombres de establecimientos en "nombre".
+    - "L3-26"
+    - "P4-24(P17)"
+    - "Zona Múltiple"
+    - "Tecni Play Sur"
+    - "Mar y Juancho"
+    - "Bodega"
+    - "Zona Múltiple, local L1-103"
 
-MÉTODO DE PAGO:
+    No es obligatorio que el cliente diga "local" o "dirección".
 
-"metodo_pago" solo puede ser:
+    Ejemplos:
 
-- "efectivo"
-- "transferencia"
-- ""
+    "L3-26"
+    → "direccion": "L3-26"
 
-Convierte expresiones como:
+    "Estoy en Tecni Play Sur"
+    → "direccion": "Tecni Play Sur"
 
-- cash → efectivo
-- QR → transferencia
-- Nequi → transferencia
-- transfiero → transferencia
+    "Llévalo a Bodega"
+    → "direccion": "Bodega"
 
-HORA Y NOTAS:
+    "Zona Múltiple, local L1-103"
+    → "direccion": "Zona Múltiple, local L1-103"
 
-- La hora no es obligatoria.
-- Las notas generales van en "notas".
-- Las instrucciones de un producto van en las notas del item.
+    No confundas el nombre o código del local con:
 
-INFORMACIÓN DEL RESTAURANTE:
+    - el nombre del cliente;
+    - un producto;
+    - una cantidad;
+    - una hora;
+    - una nota.
 
-Nombre: Terrace
-Horario: 8:00 AM a 10:00 PM
-Métodos de pago: efectivo y transferencia
+    NOMBRE:
 
-Si no sabes la respuesta a una pregunta, no inventes información.
+    Guarda como "nombre" solamente el nombre de la persona.
 
-Antes de responder, verifica:
+    Ejemplos:
 
-1. Que el JSON sea válido.
-2. Que no hayas eliminado información válida.
-3. Que los productos existan en el menú.
-4. Que un nombre o código de local esté en "direccion".
-5. Que "tipo_entrega" y "metodo_pago" tengan valores permitidos.
+    - "Soy Carlos"
+    - "A nombre de Andrea"
+    - "Ponlo a nombre de Juan"
 
-IMPORTANTE SOBRE LA INTENCIÓN:
+    No guardes nombres de establecimientos en "nombre".
 
-La intención debe determinarse solamente usando el NUEVO MENSAJE DEL CLIENTE.
+    MÉTODO DE PAGO:
 
-No copies ni conserves el valor anterior de "tipo" o "respuesta".
+    "metodo_pago" solo puede ser:
 
-Los campos "tipo" y "respuesta" son temporales y describen solamente el mensaje actual.
+    - "efectivo"
+    - "transferencia"
+    - ""
 
-Si el nuevo mensaje contiene productos, cantidades, información de entrega,
-dirección, local, nombre, método de pago, notas o correcciones,
-siempre devuelve tipo="pedido", aunque el pedido anterior haya sido un saludo.
+    Convierte expresiones como:
 
-Ejemplo:
+    - cash → efectivo
+    - QR → transferencia
+    - Nequi → transferencia
+    - transfiero → transferencia
 
-Pedido anterior:
-El cliente solamente dijo "Hola".
+    HORA Y NOTAS:
 
-Nuevo mensaje:
-"dame 2 empanadas, 1 café y 3 capuchinos"
+    - La hora no es obligatoria.
+    - Las notas generales van en "notas".
+    - Las instrucciones de un producto van en las notas del item.
 
-Resultado:
-tipo="pedido"
+    INFORMACIÓN DEL RESTAURANTE:
 
-Nunca devuelvas tipo="saludo" cuando el nuevo mensaje contenga productos o cantidades.
-"""
-        },
-            {
-                "role": "user",
-                "content": f"""
-Pedido actual:
+    Nombre: Terrace
+    Horario: 8:00 AM a 10:00 PM
+    Métodos de pago: efectivo y transferencia
 
-{json.dumps(pedido_actual, ensure_ascii=False)}
+    Si no sabes la respuesta a una pregunta, no inventes información.
 
-Nuevo mensaje del cliente:
+    Antes de responder, verifica:
 
-{mensaje}
+    1. Que el JSON sea válido.
+    2. Que no hayas eliminado información válida.
+    3. Que los productos existan en el menú.
+    4. Que un nombre o código de local esté en "direccion".
+    5. Que "tipo_entrega" y "metodo_pago" tengan valores permitidos.
 
-Devuelve el pedido completo y actualizado usando exactamente esta estructura:
+    IMPORTANTE SOBRE LA INTENCIÓN:
 
-{{
-  "tipo": "",
-  "respuesta": "",
-  "nombre": "",
-  "items": [],
-  "productos_ambiguos": [],
-  "productos_no_disponibles": [],
-  "tipo_entrega": "",
-  "direccion": "",
-  "hora": "",
-  "metodo_pago": "",
-  "notas": ""
-}}
+    La intención debe determinarse solamente usando el NUEVO MENSAJE DEL CLIENTE.
 
-Devuelve cualquier respuesta para el cliente dentro del campo "respuesta".
+    No copies ni conserves el valor anterior de "tipo" o "respuesta".
 
-No escribas texto fuera del JSON.
+    Los campos "tipo" y "respuesta" son temporales y describen solamente el mensaje actual.
 
-Para tipo="saludo", tipo="pregunta" o tipo="menu", usa el campo "respuesta" cuando corresponda.
+    Si el nuevo mensaje contiene productos, cantidades, información de entrega,
+    dirección, local, nombre, método de pago, notas o correcciones,
+    siempre devuelve tipo="pedido", aunque el pedido anterior haya sido un saludo.
 
-Para tipo="pedido", puedes usar "respuesta" si necesitas dar una confirmación breve, pero la aplicación también puede decidir qué pregunta hacer después.
-"""
-            }
-        ],
-        response_format={"type": "json_object"}
-    )
+    Ejemplo:
 
-    data = completion.choices[0].message.content
-    print("IA:", data)
+    Pedido anterior:
+    El cliente solamente dijo "Hola".
 
-    pedido = json.loads(data)
+    Nuevo mensaje:
+    "dame 2 empanadas, 1 café y 3 capuchinos"
+
+    Resultado:
+    tipo="pedido"
+
+    Nunca devuelvas tipo="saludo" cuando el nuevo mensaje contenga productos o cantidades.
+    """
+            },
+                {
+                    "role": "user",
+                    "content": f"""
+    Pedido actual:
+
+    {json.dumps(pedido_actual, ensure_ascii=False)}
+
+    Nuevo mensaje del cliente:
+
+    {mensaje}
+
+    Devuelve el pedido completo y actualizado usando exactamente esta estructura:
+
+    {{
+    "tipo": "",
+    "respuesta": "",
+    "nombre": "",
+    "items": [],
+    "productos_ambiguos": [],
+    "productos_no_disponibles": [],
+    "tipo_entrega": "",
+    "direccion": "",
+    "hora": "",
+    "metodo_pago": "",
+    "notas": ""
+    }}
+
+    Devuelve cualquier respuesta para el cliente dentro del campo "respuesta".
+
+    No escribas texto fuera del JSON.
+
+    Para tipo="saludo", tipo="pregunta" o tipo="menu", usa el campo "respuesta" cuando corresponda.
+
+    Para tipo="pedido", puedes usar "respuesta" si necesitas dar una confirmación breve, pero la aplicación también puede decidir qué pregunta hacer después.
+    """
+                }
+            ],
+            response_format={"type": "json_object"}
+        )
+
+        data = completion.choices[0].message.content
+        print("IA:", data)
+
+        pedido = json.loads(data)
+
+    except Exception as e:
+        print("ERROR OPENAI:", e)
+
+        enviar_texto(
+            numero,
+            "Lo siento, ocurrió un error procesando tu pedido. ¿Podrías intentarlo nuevamente?"
+        )
+
+        return Response(
+            content="EVENT_RECEIVED",
+            media_type="text/plain"
+        )
+
     contacto = obtener_contacto(numero)
 
     if contacto and contacto.get("nombre") and not pedido.get("nombre"):
