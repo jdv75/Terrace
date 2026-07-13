@@ -1,3 +1,6 @@
+import time
+import traceback
+
 from fastapi import FastAPI, Request, HTTPException
 import requests
 from openai import OpenAI
@@ -29,7 +32,11 @@ with open("menu.json", "r", encoding="utf-8") as file:
 
 app = FastAPI()
 app.mount("/static", StaticFiles(directory="static"), name="static")
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+client = OpenAI(
+    api_key=os.getenv("OPENAI_API_KEY"),
+    timeout=25.0,
+    max_retries=1
+)
 DATABASE_URL = os.getenv("DATABASE_URL")
 META_ACCESS_TOKEN = os.getenv("META_ACCESS_TOKEN")
 META_PHONE_NUMBER_ID = os.getenv("META_PHONE_NUMBER_ID")
@@ -128,6 +135,14 @@ def crear_tabla():
             token_expires_at TIMESTAMP,
             connected_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             active BOOLEAN DEFAULT TRUE
+        )
+    """)
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS processed_whatsapp_messages (
+            message_id TEXT PRIMARY KEY,
+            telefono TEXT,
+            processed_at TEXT
         )
     """)
 
@@ -273,6 +288,30 @@ def borrar_conversacion(numero):
 
     conn.commit()
     conn.close()
+
+def mensaje_ya_procesado(message_id):
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        INSERT INTO processed_whatsapp_messages (
+            message_id,
+            processed_at
+        )
+        VALUES (%s, %s)
+        ON CONFLICT (message_id) DO NOTHING
+        RETURNING message_id
+    """, (
+        message_id,
+        datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    ))
+
+    insertado = cursor.fetchone()
+
+    conn.commit()
+    conn.close()
+
+    return insertado is None
 
 def normalizar(texto):
     texto = texto.lower().strip()
@@ -670,8 +709,18 @@ async def whatsapp(request: Request):
             return Response(content="EVENT_RECEIVED", media_type="text/plain")
 
         mensaje_obj = mensajes[0]
+
+        message_id = mensaje_obj.get("id")
         numero = mensaje_obj.get("from")
         tipo_mensaje = mensaje_obj.get("type")
+
+        if message_id and mensaje_ya_procesado(message_id):
+            print("MENSAJE DUPLICADO IGNORADO:", message_id)
+
+            return Response(
+                content="EVENT_RECEIVED",
+                media_type="text/plain"
+            )
 
         if tipo_mensaje != "text":
             enviar_texto(numero, "Por ahora solo puedo recibir mensajes de texto. Escríbeme tu pedido o pide el menú 😊")
@@ -776,8 +825,15 @@ async def whatsapp(request: Request):
         pedido_actual["nombre"] = contacto["nombre"]
 
     try:
+        inicio_openai = time.time()
+
+        print(
+            f"INICIANDO OPENAI | teléfono={numero} | "
+            f"mensaje={mensaje}"
+        )
+
         completion = client.chat.completions.create(
-            model="gpt-5",
+            model="gpt-4.1-mini",
         messages=[
             {
                 "role": "system",
@@ -1095,7 +1151,16 @@ async def whatsapp(request: Request):
     """
                 }
             ],
-            response_format={"type": "json_object"}
+            response_format={"type": "json_object"},
+            max_tokens=1000,
+            temperature=0
+        )
+
+        duracion_openai = time.time() - inicio_openai
+
+        print(
+            f"OPENAI TERMINÓ EN {duracion_openai:.2f} SEGUNDOS "
+            f"| teléfono={numero}"
         )
 
         data = completion.choices[0].message.content
@@ -1103,12 +1168,29 @@ async def whatsapp(request: Request):
 
         pedido = json.loads(data)
 
+        pedido["pedido_confirmado"] = pedido_actual.get(
+            "pedido_confirmado",
+            False
+        )
+
+        pedido["fecha_confirmacion"] = pedido_actual.get(
+            "fecha_confirmacion",
+            ""
+        )
+
+        pedido["confirmar_direccion_guardada"] = pedido_actual.get(
+            "confirmar_direccion_guardada",
+            ""
+        )
+
     except Exception as e:
-        print("ERROR OPENAI:", e)
+        print("ERROR OPENAI:", repr(e))
+        traceback.print_exc()
 
         enviar_texto(
             numero,
-            "Lo siento, ocurrió un error procesando tu pedido. ¿Podrías intentarlo nuevamente?"
+            "Lo siento, ocurrió un error procesando tu pedido. "
+            "¿Podrías intentarlo nuevamente?"
         )
 
         return Response(
@@ -1217,8 +1299,20 @@ async def whatsapp(request: Request):
         return Response(content="EVENT_RECEIVED", media_type="text/plain")
 
     if len(faltantes) == 0:
-        guardar_pedido_db(numero, pedido)
-        borrar_conversacion(numero)
+        pedido_ya_confirmado = pedido_actual.get(
+            "pedido_confirmado",
+            False
+        )
+
+        if not pedido_ya_confirmado:
+            guardar_pedido_db(numero, pedido)
+
+        pedido["pedido_confirmado"] = True
+        pedido["fecha_confirmacion"] = datetime.now().strftime(
+            "%Y-%m-%d %H:%M:%S"
+        )
+
+        guardar_conversacion(numero, pedido)
 
         items_texto = ", ".join(
             [
