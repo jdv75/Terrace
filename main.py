@@ -399,47 +399,117 @@ def enviar_texto(numero, texto):
         guardar_mensaje(numero, "Terrace", texto, "out")
 
 
-def enviar_documento(numero, link, filename="menu.pdf"):
-    url = f"https://graph.facebook.com/v25.0/{META_PHONE_NUMBER_ID}/messages"
+def enviar_documento(numero, link=None, filename="Menu_Terrace.pdf"):
+    ruta_pdf = os.path.join("static", "menu.pdf")
 
-    headers = {
-        "Authorization": f"Bearer {META_ACCESS_TOKEN}",
-        "Content-Type": "application/json"
+    if not os.path.exists(ruta_pdf):
+        print("ERROR: No existe el archivo:", ruta_pdf)
+        return False
+
+    headers_auth = {
+        "Authorization": f"Bearer {META_ACCESS_TOKEN}"
     }
 
-    payload = {
-        "messaging_product": "whatsapp",
-        "to": numero,
-        "type": "document",
-        "document": {
-            "link": link,
-            "filename": filename
+    # 1. Subir el PDF directamente a Meta
+    upload_url = (
+        f"https://graph.facebook.com/v25.0/"
+        f"{META_PHONE_NUMBER_ID}/media"
+    )
+
+    try:
+        with open(ruta_pdf, "rb") as archivo_pdf:
+            files = {
+                "file": (
+                    filename,
+                    archivo_pdf,
+                    "application/pdf"
+                )
+            }
+
+            data = {
+                "messaging_product": "whatsapp",
+                "type": "application/pdf"
+            }
+
+            upload_response = requests.post(
+                upload_url,
+                headers=headers_auth,
+                files=files,
+                data=data,
+                timeout=60
+            )
+
+        print(
+            "META MEDIA UPLOAD:",
+            upload_response.status_code,
+            upload_response.text
+        )
+
+        if upload_response.status_code not in [200, 201]:
+            print("ERROR SUBIENDO PDF A META")
+            return False
+
+        media_id = upload_response.json().get("id")
+
+        if not media_id:
+            print("ERROR: Meta no devolvió media_id")
+            return False
+
+        # 2. Enviar el documento usando el media_id
+        messages_url = (
+            f"https://graph.facebook.com/v25.0/"
+            f"{META_PHONE_NUMBER_ID}/messages"
+        )
+
+        payload = {
+            "messaging_product": "whatsapp",
+            "recipient_type": "individual",
+            "to": numero,
+            "type": "document",
+            "document": {
+                "id": media_id,
+                "filename": filename,
+                "caption": "Menú de Terrace 📋"
+            }
         }
-    }
 
-    response = requests.post(url, headers=headers, json=payload)
-    print("META DOCUMENT RESPONSE:", response.status_code, response.text)
-
-
-def enviar_imagen(numero, link):
-    url = f"https://graph.facebook.com/v25.0/{META_PHONE_NUMBER_ID}/messages"
-
-    headers = {
-        "Authorization": f"Bearer {META_ACCESS_TOKEN}",
-        "Content-Type": "application/json"
-    }
-
-    payload = {
-        "messaging_product": "whatsapp",
-        "to": numero,
-        "type": "image",
-        "image": {
-            "link": link
+        headers_json = {
+            "Authorization": f"Bearer {META_ACCESS_TOKEN}",
+            "Content-Type": "application/json"
         }
-    }
 
-    response = requests.post(url, headers=headers, json=payload)
-    print("META IMAGE RESPONSE:", response.status_code, response.text)
+        send_response = requests.post(
+            messages_url,
+            headers=headers_json,
+            json=payload,
+            timeout=30
+        )
+
+        print(
+            "META DOCUMENT SEND:",
+            send_response.status_code,
+            send_response.text
+        )
+
+        if send_response.status_code in [200, 201]:
+            guardar_mensaje(
+                numero,
+                "Terrace",
+                "📋 Menú de Terrace enviado",
+                "out"
+            )
+            return True
+
+        print("ERROR ENVIANDO PDF POR MEDIA_ID")
+        return False
+
+    except requests.RequestException as error:
+        print("ERROR DE CONEXIÓN CON META:", str(error))
+        return False
+
+    except Exception as error:
+        print("ERROR GENERAL ENVIANDO DOCUMENTO:", str(error))
+        return False
 
 @app.get("/whatsapp")
 async def verificar_webhook(request: Request):
