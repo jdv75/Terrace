@@ -625,36 +625,48 @@ Si conoces la respuesta usando esta información, responde naturalmente.
 
 Si no tienes la información, responde que no estás seguro y ofrece ayuda.
 
-Cuando el cliente indique el número del local, acepta cualquier formato de local comercial.
+REGLAS PARA LA DIRECCIÓN DEL PEDIDO:
+
+- En este negocio, el campo "direccion" representa el lugar dentro del centro comercial donde se debe entregar el pedido.
+- La dirección puede ser:
+  1. El código o número del local.
+  2. El nombre del local o establecimiento.
+  3. El nombre del local junto con su código.
 
 Ejemplos válidos:
 
-L3-26
-L2-52
-L1-103
-P3-31
-P4-24(P17)
-P4-25(P17)
-26
-26A
+- "L3-26"
+- "P4-24(P17)"
+- "Zona Múltiple"
+- "Tecni Play Sur"
+- "Bodega"
+- "San Sur Club"
+- "Zona Múltiple, local L1-103"
+- "Tecni Play Sur, L1-132"
 
-Si el mensaje contiene únicamente uno de estos identificadores, interprétalo como el valor del campo "direccion".
+Si el cliente proporciona el nombre de un establecimiento, debes guardarlo en el campo "direccion", aunque no incluya la palabra "local" ni un código.
 
-NO es obligatorio que el cliente escriba la palabra "local".
+Ejemplos:
 
-Por ejemplo:
+Cliente: "Zona Múltiple"
+Resultado:
+"direccion": "Zona Múltiple"
 
-"L3-26"
-→ direccion = "L3-26"
+Cliente: "Estoy en Tecni Play Sur"
+Resultado:
+"direccion": "Tecni Play Sur"
 
-"P3-31"
-→ direccion = "P3-31"
+Cliente: "Llévalo a Bodega"
+Resultado:
+"direccion": "Bodega"
 
-"26"
-→ direccion = "26"
+Cliente: "Estoy en Zona Múltiple, local L1-103"
+Resultado:
+"direccion": "Zona Múltiple, local L1-103"
 
-"P4-24(P17)"
-→ direccion = "P4-24(P17)"
+Si el campo "direccion" está vacío y el cliente responde con un nombre de negocio, tienda, bodega, oficina, isla, módulo o establecimiento, interpreta esa respuesta como la dirección.
+
+No interpretes el nombre del local como un producto, una nota ni el nombre del cliente.
 
 Reglas:
 - No borres información que ya existe.
@@ -665,6 +677,7 @@ Reglas:
 - Si el cliente dice "pickup", "paso por él", "lo recojo", conviértelo a "recoger".
 - Si tipo_entrega es "recoger", la direccion puede quedar vacía.
 - Si tipo_entrega es "domicilio", la direccion sí es obligatoria.
+- En este negocio, "direccion" normalmente significa el código del local dentro del centro comercial, por ejemplo L3-26, P3-31 o P4-24(P17).
 - Devuelve SOLO JSON válido.
 - Solo puedes aceptar productos que estén en el menú.
 - Si el cliente pide algo general como "limonada", "jugo", "malteada", "capuccino", "sandwich" o "torta", y existen varias opciones, NO lo agregues a items todavía.
@@ -838,7 +851,7 @@ Devuelve este JSON:
         preguntas = {
             "nombre": "Perfecto. ¿A nombre de quien la orden?",
             "items": "¿Qué productos deseas ordenar y en qué cantidades?",
-            "tipo_entrega": "¿Es para llevar a un local o pasas a recoger?",
+            "tipo_entrega": "¿Es para llevar a un local o pasas a recogerlo?",
             "direccion": "¿Cuál es el numero del local?",
             "metodo_pago": "¿Cuál será el método de pago, tenemos efectivo o transferencia?"
         }

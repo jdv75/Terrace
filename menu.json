@@ -76,5 +76,6 @@
   {"producto": "cafe clarito", "precio": 3000},
   {"producto": "cafe cargado", "precio": 3000},
   {"producto": "Hawaianos", "precio": 6000},
-  {"producto": "cafe negro", "precio": 3000}
+  {"producto": "cafe negro", "precio": 3000},
+  {"producto": "cafe pintado", "precio": 4000}
 ]
