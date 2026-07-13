@@ -289,29 +289,49 @@ def borrar_conversacion(numero):
     conn.commit()
     conn.close()
 
-def mensaje_ya_procesado(message_id):
+def mensaje_fue_procesado(message_id):
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        SELECT 1
+        FROM processed_whatsapp_messages
+        WHERE message_id = %s
+    """, (message_id,))
+
+    existe = cursor.fetchone() is not None
+
+    conn.close()
+
+    return existe
+
+
+def marcar_mensaje_procesado(message_id, telefono=None):
     conn = get_connection()
     cursor = conn.cursor()
 
     cursor.execute("""
         INSERT INTO processed_whatsapp_messages (
             message_id,
+            telefono,
             processed_at
         )
-        VALUES (%s, %s)
+        VALUES (%s, %s, %s)
         ON CONFLICT (message_id) DO NOTHING
-        RETURNING message_id
     """, (
         message_id,
+        telefono,
         datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     ))
-
-    insertado = cursor.fetchone()
 
     conn.commit()
     conn.close()
 
-    return insertado is None
+def finalizar_webhook(message_id, numero):
+    if message_id:
+        marcar_mensaje_procesado(message_id, numero)
+
+    return finalizar_webhook(message_id, numero)
 
 def normalizar(texto):
     texto = texto.lower().strip()
@@ -714,7 +734,7 @@ async def whatsapp(request: Request):
         numero = mensaje_obj.get("from")
         tipo_mensaje = mensaje_obj.get("type")
 
-        if message_id and mensaje_ya_procesado(message_id):
+        if message_id and mensaje_fue_procesado(message_id):
             print("MENSAJE DUPLICADO IGNORADO:", message_id)
 
             return Response(
@@ -723,8 +743,13 @@ async def whatsapp(request: Request):
             )
 
         if tipo_mensaje != "text":
-            enviar_texto(numero, "Por ahora solo puedo recibir mensajes de texto. Escríbeme tu pedido o pide el menú 😊")
-            return Response(content="EVENT_RECEIVED", media_type="text/plain")
+            enviar_texto(
+                numero,
+                "Por ahora solo puedo recibir mensajes de texto. "
+                "Escríbeme tu pedido o pide el menú 😊"
+            )
+
+            return finalizar_webhook(message_id, numero)
 
         mensaje = mensaje_obj["text"]["body"]
         nombre = value.get("contacts", [{}])[0].get("profile", {}).get("name", "")
@@ -732,7 +757,10 @@ async def whatsapp(request: Request):
 
     except Exception as e:
         print("ERROR LEYENDO WEBHOOK META:", e)
-        return Response(content="EVENT_RECEIVED", media_type="text/plain")
+        return Response(
+            content="EVENT_RECEIVED",
+            media_type="text/plain"
+        )
 
     mensaje_lower = mensaje.strip().lower()
 
@@ -777,10 +805,7 @@ async def whatsapp(request: Request):
                     "Lo siento, no pude enviar el código QR en este momento."
                 )
 
-            return Response(
-                content="EVENT_RECEIVED",
-                media_type="text/plain"
-            )
+            return finalizar_webhook(message_id, numero)
 
     if pedido_actual.get("confirmar_direccion_guardada"):
         direccion_guardada = pedido_actual["confirmar_direccion_guardada"]
@@ -807,7 +832,7 @@ async def whatsapp(request: Request):
             "Perfecto, ya tengo el número del local para este pedido."
         )
 
-        return Response(content="EVENT_RECEIVED", media_type="text/plain")
+        return finalizar_webhook(message_id, numero)
 
     menu_pdf_url = f"{PUBLIC_BASE_URL}/static/menu.pdf"
     qr_url = f"{PUBLIC_BASE_URL}/static/qr_transferencia.jpeg"
@@ -815,7 +840,7 @@ async def whatsapp(request: Request):
     if "menu" in mensaje_lower or "menú" in mensaje_lower:
         enviar_texto(numero, "Claro, aquí tienes nuestro menú 📋")
         enviar_documento(numero, menu_pdf_url, "Menu Terrace.pdf")
-        return Response(content="EVENT_RECEIVED", media_type="text/plain")
+        return finalizar_webhook(message_id, numero)
 
     pedido_actual = obtener_conversacion(numero)
 
@@ -1220,16 +1245,16 @@ async def whatsapp(request: Request):
             "Te comparto nuestro menú. Cuando estés listo, puedes enviarme tu pedido."
         )
         enviar_documento(numero, menu_pdf_url, "Menu Terrace.pdf")
-        return Response(content="EVENT_RECEIVED", media_type="text/plain")
+        return finalizar_webhook(message_id, numero)
 
     if tipo == "menu":
         enviar_texto(numero, "Claro, aquí tienes nuestro menú 📋")
         enviar_documento(numero, menu_pdf_url, "Menu Terrace.pdf")
-        return Response(content="EVENT_RECEIVED", media_type="text/plain")
+        return finalizar_webhook(message_id, numero)
 
     if tipo == "pregunta":
         enviar_texto(numero, pedido.get("respuesta", ""))
-        return Response(content="EVENT_RECEIVED", media_type="text/plain")
+        return finalizar_webhook(message_id, numero)
 
     faltantes = []
     productos_ambiguos = pedido.get("productos_ambiguos", [])
@@ -1254,7 +1279,7 @@ async def whatsapp(request: Request):
             "¿Deseas usar ese mismo número para este pedido? Responde 'sí' o envía el nuevo número."
         )
 
-        return Response(content="EVENT_RECEIVED", media_type="text/plain")
+        return finalizar_webhook(message_id, numero)
 
     for campo in CAMPOS_OBLIGATORIOS:
         if campo == "direccion":
@@ -1278,7 +1303,7 @@ async def whatsapp(request: Request):
             numero,
             "Lo siento, no tenemos disponible: " + ", ".join(productos_no_disponibles)
         )
-        return Response(content="EVENT_RECEIVED", media_type="text/plain")
+        return finalizar_webhook(message_id, numero)
 
     if productos_ambiguos:
         mensajes = []
@@ -1296,7 +1321,7 @@ async def whatsapp(request: Request):
                 )
 
         enviar_texto(numero, "\n\n".join(mensajes))
-        return Response(content="EVENT_RECEIVED", media_type="text/plain")
+        return finalizar_webhook(message_id, numero)
 
     if len(faltantes) == 0:
         pedido_ya_confirmado = pedido_actual.get(
@@ -1357,7 +1382,7 @@ async def whatsapp(request: Request):
 
         enviar_texto(numero, preguntas.get(campo, "Me falta información para completar tu pedido."))
 
-    return Response(content="EVENT_RECEIVED", media_type="text/plain")
+    return finalizar_webhook(message_id, numero)
 
 @app.post("/manual/send")
 async def enviar_manual(request: Request):
