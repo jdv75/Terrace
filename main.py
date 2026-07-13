@@ -198,6 +198,24 @@ def obtener_contacto(telefono):
 
     return contacto
 
+def obtener_ultimo_pedido_reciente(numero, minutos=15):
+    conn = get_connection()
+    cursor = conn.cursor(cursor_factory=RealDictCursor)
+
+    cursor.execute("""
+        SELECT *
+        FROM orders
+        WHERE telefono = %s
+          AND fecha::timestamp >= NOW() - (%s * INTERVAL '1 minute')
+        ORDER BY id DESC
+        LIMIT 1
+    """, (numero, minutos))
+
+    pedido = cursor.fetchone()
+    conn.close()
+
+    return pedido
+
 
 def guardar_contacto(telefono, nombre=None, direccion=None):
     conn = get_connection()
@@ -510,6 +528,117 @@ def enviar_documento(numero, link=None, filename="Menu_Terrace.pdf"):
     except Exception as error:
         print("ERROR GENERAL ENVIANDO DOCUMENTO:", str(error))
         return False
+    
+def enviar_imagen(numero, link=None):
+    ruta_imagen = os.path.join("static", "qr_transferencia.jpeg")
+
+    if not os.path.exists(ruta_imagen):
+        print("ERROR: No existe el QR:", ruta_imagen)
+        return False
+
+    upload_url = (
+        f"https://graph.facebook.com/v25.0/"
+        f"{META_PHONE_NUMBER_ID}/media"
+    )
+
+    headers_auth = {
+        "Authorization": f"Bearer {META_ACCESS_TOKEN}"
+    }
+
+    try:
+        # 1. Subir el QR a Meta
+        with open(ruta_imagen, "rb") as archivo:
+            files = {
+                "file": (
+                    "qr_transferencia.jpeg",
+                    archivo,
+                    "image/jpeg"
+                )
+            }
+
+            data = {
+                "messaging_product": "whatsapp",
+                "type": "image/jpeg"
+            }
+
+            upload_response = requests.post(
+                upload_url,
+                headers=headers_auth,
+                files=files,
+                data=data,
+                timeout=60
+            )
+
+        print(
+            "META QR UPLOAD:",
+            upload_response.status_code,
+            upload_response.text
+        )
+
+        if upload_response.status_code not in [200, 201]:
+            print("ERROR SUBIENDO QR A META")
+            return False
+
+        media_id = upload_response.json().get("id")
+
+        if not media_id:
+            print("ERROR: Meta no devolvió media_id para el QR")
+            return False
+
+        # 2. Enviar el QR usando el media_id
+        messages_url = (
+            f"https://graph.facebook.com/v25.0/"
+            f"{META_PHONE_NUMBER_ID}/messages"
+        )
+
+        headers_json = {
+            "Authorization": f"Bearer {META_ACCESS_TOKEN}",
+            "Content-Type": "application/json"
+        }
+
+        payload = {
+            "messaging_product": "whatsapp",
+            "recipient_type": "individual",
+            "to": numero,
+            "type": "image",
+            "image": {
+                "id": media_id,
+                "caption": "Código QR para transferencia"
+            }
+        }
+
+        send_response = requests.post(
+            messages_url,
+            headers=headers_json,
+            json=payload,
+            timeout=30
+        )
+
+        print(
+            "META QR SEND:",
+            send_response.status_code,
+            send_response.text
+        )
+
+        if send_response.status_code in [200, 201]:
+            guardar_mensaje(
+                numero,
+                "Terrace",
+                "🧾 Código QR para transferencia enviado",
+                "out"
+            )
+            return True
+
+        print("ERROR ENVIANDO QR POR MEDIA_ID")
+        return False
+
+    except requests.RequestException as error:
+        print("ERROR DE CONEXIÓN ENVIANDO QR:", str(error))
+        return False
+
+    except Exception as error:
+        print("ERROR GENERAL ENVIANDO QR:", str(error))
+        return False
 
 @app.get("/whatsapp")
 async def verificar_webhook(request: Request):
@@ -562,6 +691,50 @@ async def whatsapp(request: Request):
     mensaje_lower = mensaje.strip().lower()
 
     pedido_actual = obtener_conversacion(numero)
+
+    mensajes_transferencia = [
+        "transferencia",
+        "transferencia por favor",
+        "pago por transferencia",
+        "quiero pagar por transferencia",
+        "qr",
+        "codigo qr",
+        "código qr",
+        "mandame el qr",
+        "mándame el qr"
+    ]
+
+    pedido_vacio = (
+        not pedido_actual.get("items")
+        and not pedido_actual.get("nombre")
+        and not pedido_actual.get("tipo_entrega")
+        and not pedido_actual.get("direccion")
+    )
+
+    if mensaje_lower in mensajes_transferencia and pedido_vacio:
+        ultimo_pedido = obtener_ultimo_pedido_reciente(numero)
+
+        if (
+            ultimo_pedido
+            and ultimo_pedido.get("metodo_pago", "").lower() == "transferencia"
+        ):
+            enviar_texto(
+                numero,
+                "Claro, te envío nuevamente el código QR:"
+            )
+
+            qr_enviado = enviar_imagen(numero)
+
+            if not qr_enviado:
+                enviar_texto(
+                    numero,
+                    "Lo siento, no pude enviar el código QR en este momento."
+                )
+
+            return Response(
+                content="EVENT_RECEIVED",
+                media_type="text/plain"
+            )
 
     if pedido_actual.get("confirmar_direccion_guardada"):
         direccion_guardada = pedido_actual["confirmar_direccion_guardada"]
@@ -1052,8 +1225,19 @@ Para tipo="pedido", puedes usar "respuesta" si necesitas dar una confirmación b
         )
 
         if pedido.get("metodo_pago", "").strip().lower() == "transferencia":
-            enviar_texto(numero, "Puedes hacer la transferencia usando este código QR:")
-            enviar_imagen(numero, qr_url)
+            enviar_texto(
+                numero,
+                "Puedes hacer la transferencia usando este código QR:"
+            )
+
+            qr_enviado = enviar_imagen(numero)
+
+            if not qr_enviado:
+                enviar_texto(
+                    numero,
+                    "Lo siento, no pude enviar el código QR. "
+                    "El personal de Terrace te ayudará con la transferencia."
+                )
     else:
         campo = faltantes[0]
 
