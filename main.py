@@ -790,9 +790,71 @@ Antes de responder, verifica:
 3. Que los productos existan en el menú.
 4. Que un nombre o código de local esté en "direccion".
 5. Que "tipo_entrega" y "metodo_pago" tengan valores permitidos.
+
+IMPORTANTE SOBRE LA INTENCIÓN:
+
+La intención debe determinarse solamente usando el NUEVO MENSAJE DEL CLIENTE.
+
+No copies ni conserves el valor anterior de "tipo" o "respuesta".
+
+Los campos "tipo" y "respuesta" son temporales y describen solamente el mensaje actual.
+
+Si el nuevo mensaje contiene productos, cantidades, información de entrega,
+dirección, local, nombre, método de pago, notas o correcciones,
+siempre devuelve tipo="pedido", aunque el pedido anterior haya sido un saludo.
+
+Ejemplo:
+
+Pedido anterior:
+El cliente solamente dijo "Hola".
+
+Nuevo mensaje:
+"dame 2 empanadas, 1 café y 3 capuchinos"
+
+Resultado:
+tipo="pedido"
+
+Nunca devuelvas tipo="saludo" cuando el nuevo mensaje contenga productos o cantidades.
+"""
+        },
+            {
+                "role": "user",
+                "content": f"""
+Pedido actual:
+
+{json.dumps(pedido_actual, ensure_ascii=False)}
+
+Nuevo mensaje del cliente:
+
+{mensaje}
+
+Devuelve el pedido completo y actualizado usando exactamente esta estructura:
+
+{{
+  "tipo": "",
+  "respuesta": "",
+  "nombre": "",
+  "items": [],
+  "productos_ambiguos": [],
+  "productos_no_disponibles": [],
+  "tipo_entrega": "",
+  "direccion": "",
+  "hora": "",
+  "metodo_pago": "",
+  "notas": ""
+}}
+
+Devuelve cualquier respuesta para el cliente dentro del campo "respuesta".
+
+No escribas texto fuera del JSON.
+
+Para tipo="saludo", tipo="pregunta" o tipo="menu", usa el campo "respuesta" cuando corresponda.
+
+Para tipo="pedido", puedes usar "respuesta" si necesitas dar una confirmación breve, pero la aplicación también puede decidir qué pregunta hacer después.
 """
             }
-        ]
+        ],
+        response_format={"type": "json_object"}
     )
 
     data = completion.choices[0].message.content
