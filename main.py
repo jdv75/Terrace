@@ -480,37 +480,36 @@ def enviar_texto(numero, texto):
     if response.status_code in [200, 201]:
         guardar_mensaje(numero, "Terrace", texto, "out")
 
+def enviar_menu(numero, link=None):
+    ruta_imagen = os.path.join("static", "menu.jpeg")
 
-def enviar_documento(numero, link=None, filename="Menu_Terrace.pdf"):
-    ruta_pdf = os.path.join("static", "menu.pdf")
-
-    if not os.path.exists(ruta_pdf):
-        print("ERROR: No existe el archivo:", ruta_pdf)
+    if not os.path.exists(ruta_imagen):
+        print("ERROR: No existe el menú:", ruta_imagen)
         return False
 
-    headers_auth = {
-        "Authorization": f"Bearer {META_ACCESS_TOKEN}"
-    }
-
-    # 1. Subir el PDF directamente a Meta
     upload_url = (
         f"https://graph.facebook.com/v25.0/"
         f"{META_PHONE_NUMBER_ID}/media"
     )
 
+    headers_auth = {
+        "Authorization": f"Bearer {META_ACCESS_TOKEN}"
+    }
+
     try:
-        with open(ruta_pdf, "rb") as archivo_pdf:
+        # 1. Subir el menu a Meta
+        with open(ruta_imagen, "rb") as archivo:
             files = {
                 "file": (
-                    filename,
-                    archivo_pdf,
-                    "application/pdf"
+                    "menu.jpeg",
+                    archivo,
+                    "image/jpeg"
                 )
             }
 
             data = {
                 "messaging_product": "whatsapp",
-                "type": "application/pdf"
+                "type": "image/jpeg"
             }
 
             upload_response = requests.post(
@@ -522,42 +521,41 @@ def enviar_documento(numero, link=None, filename="Menu_Terrace.pdf"):
             )
 
         print(
-            "META MEDIA UPLOAD:",
+            "META MENU UPLOAD:",
             upload_response.status_code,
             upload_response.text
         )
 
         if upload_response.status_code not in [200, 201]:
-            print("ERROR SUBIENDO PDF A META")
+            print("ERROR SUBIENDO MENÚ A META")
             return False
 
         media_id = upload_response.json().get("id")
 
         if not media_id:
-            print("ERROR: Meta no devolvió media_id")
+            print("ERROR: Meta no devolvió media_id para el menú")
             return False
 
-        # 2. Enviar el documento usando el media_id
+        # 2. Enviar el menú usando el media_id
         messages_url = (
             f"https://graph.facebook.com/v25.0/"
             f"{META_PHONE_NUMBER_ID}/messages"
         )
 
+        headers_json = {
+            "Authorization": f"Bearer {META_ACCESS_TOKEN}",
+            "Content-Type": "application/json"
+        }
+
         payload = {
             "messaging_product": "whatsapp",
             "recipient_type": "individual",
             "to": numero,
-            "type": "document",
-            "document": {
+            "type": "image",
+            "image": {
                 "id": media_id,
-                "filename": filename,
-                "caption": "Menú de Terrace 📋"
+                "caption": "Menú de Terrace"
             }
-        }
-
-        headers_json = {
-            "Authorization": f"Bearer {META_ACCESS_TOKEN}",
-            "Content-Type": "application/json"
         }
 
         send_response = requests.post(
@@ -568,7 +566,7 @@ def enviar_documento(numero, link=None, filename="Menu_Terrace.pdf"):
         )
 
         print(
-            "META DOCUMENT SEND:",
+            "META MENU SEND:",
             send_response.status_code,
             send_response.text
         )
@@ -577,20 +575,20 @@ def enviar_documento(numero, link=None, filename="Menu_Terrace.pdf"):
             guardar_mensaje(
                 numero,
                 "Terrace",
-                "📋 Menú de Terrace enviado",
+                "🧾 Menú de Terrace enviado",
                 "out"
             )
             return True
 
-        print("ERROR ENVIANDO PDF POR MEDIA_ID")
+        print("ERROR ENVIANDO MENÚ POR MEDIA_ID")
         return False
 
     except requests.RequestException as error:
-        print("ERROR DE CONEXIÓN CON META:", str(error))
+        print("ERROR DE CONEXIÓN ENVIANDO MENÚ:", str(error))
         return False
 
     except Exception as error:
-        print("ERROR GENERAL ENVIANDO DOCUMENTO:", str(error))
+        print("ERROR GENERAL ENVIANDO MENÚ:", str(error))
         return False
     
 def enviar_imagen(numero, link=None):
@@ -952,7 +950,7 @@ async def whatsapp(request: Request):
 
     if mensaje_lower == "1":
         enviar_texto(numero, "Claro, aquí tienes nuestro menú 📋")
-        enviar_documento(numero, menu_pdf_url, "Menu Terrace.pdf")
+        enviar_menu(numero)
         return finalizar_webhook(message_id, numero)
 
     if mensaje_lower == "2":
@@ -966,7 +964,7 @@ async def whatsapp(request: Request):
 
     if "menu" in mensaje_lower or "menú" in mensaje_lower:
         enviar_texto(numero, "Claro, aquí tienes nuestro menú 📋")
-        enviar_documento(numero, menu_pdf_url, "Menu Terrace.pdf")
+        enviar_menu(numero)
         return finalizar_webhook(message_id, numero)
 
     pedido_actual = obtener_conversacion(numero)
@@ -1415,7 +1413,7 @@ async def whatsapp(request: Request):
 
     if tipo == "menu":
         enviar_texto(numero, "Claro, aquí tienes nuestro menú 📋")
-        enviar_documento(numero, menu_pdf_url, "Menu Terrace.pdf")
+        enviar_menu(numero)
         return finalizar_webhook(message_id, numero)
 
     if tipo == "pregunta":
