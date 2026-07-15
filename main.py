@@ -1159,6 +1159,13 @@ async def whatsapp(request: Request):
     - Nequi → transferencia
     - transfiero → transferencia
 
+    Los campos "productos_ambiguos" y "productos_no_disponibles"
+    describen únicamente el NUEVO MENSAJE DEL CLIENTE.
+
+    Nunca conserves esos valores del pedido anterior.
+    Si el nuevo mensaje no contiene productos ambiguos o no disponibles,
+    devuelve esos campos como listas vacías.
+
     HORA Y NOTAS:
 
     - La hora no es obligatoria.
@@ -1351,8 +1358,16 @@ async def whatsapp(request: Request):
     if productos_no_disponibles:
         enviar_texto(
             numero,
-            "Lo siento, no tenemos disponible: " + ", ".join(productos_no_disponibles)
+            "Lo siento, no tenemos disponible: "
+            + ", ".join(productos_no_disponibles)
+            + ". Puedes elegir otro producto del menú."
         )
+
+        # El error ya fue informado, por lo tanto no debe quedarse
+        # guardado para los siguientes mensajes.
+        pedido["productos_no_disponibles"] = []
+        guardar_conversacion(numero, pedido)
+
         return finalizar_webhook(message_id, numero)
 
     if productos_ambiguos:
@@ -1363,7 +1378,8 @@ async def whatsapp(request: Request):
 
             if opciones:
                 mensajes.append(
-                    f"¿Cuál opción deseas de {ambiguo}? Tenemos: " + ", ".join(opciones)
+                    f"¿Cuál opción deseas de {ambiguo}? Tenemos: "
+                    + ", ".join(opciones)
                 )
             else:
                 mensajes.append(
@@ -1371,6 +1387,12 @@ async def whatsapp(request: Request):
                 )
 
         enviar_texto(numero, "\n\n".join(mensajes))
+
+        # La ambigüedad ya fue informada. No debe bloquear
+        # permanentemente los siguientes mensajes.
+        pedido["productos_ambiguos"] = []
+        guardar_conversacion(numero, pedido)
+
         return finalizar_webhook(message_id, numero)
 
     if len(faltantes) == 0:
