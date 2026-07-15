@@ -358,11 +358,15 @@ def calcular_total(pedido):
         except:
             cantidad = 1
 
-        producto_encontrado = buscar_producto(producto)
+        producto_encontrado = None
+
+        for producto_menu in MENU:
+            if normalizar(producto_menu["producto"]) == normalizar(producto):
+                producto_encontrado = producto_menu
+                break
 
         if producto_encontrado:
             precio = producto_encontrado["precio"]
-            item["producto"] = producto_encontrado["producto"]
         else:
             precio = 0
 
@@ -401,6 +405,44 @@ def buscar_producto(nombre_producto):
         return MENU[index]
 
     return None
+
+def validar_items_pedido(pedido):
+    items_validos = []
+    productos_invalidos = []
+
+    for item in pedido.get("items", []):
+        nombre_producto = item.get("producto", "").strip()
+
+        producto_encontrado = None
+
+        for producto_menu in MENU:
+            if normalizar(producto_menu["producto"]) == normalizar(nombre_producto):
+                producto_encontrado = producto_menu
+                break
+
+        if producto_encontrado:
+            items_validos.append({
+                "producto": producto_encontrado["producto"],
+                "cantidad": str(item.get("cantidad", "1")),
+                "notas": item.get("notas", "")
+            })
+        else:
+            productos_invalidos.append(nombre_producto)
+
+    pedido["items"] = items_validos
+
+    productos_no_disponibles = pedido.get(
+        "productos_no_disponibles",
+        []
+    )
+
+    for producto in productos_invalidos:
+        if producto and producto not in productos_no_disponibles:
+            productos_no_disponibles.append(producto)
+
+    pedido["productos_no_disponibles"] = productos_no_disponibles
+
+    return pedido
 
 def opciones_por_producto(producto_ambiguo):
     producto_ambiguo = normalizar(producto_ambiguo)
@@ -1355,6 +1397,7 @@ async def whatsapp(request: Request):
         print("IA:", data)
 
         pedido = json.loads(data)
+        pedido = validar_items_pedido(pedido)
 
         pedido["pedido_confirmado"] = pedido_actual.get(
             "pedido_confirmado",
@@ -1460,6 +1503,18 @@ async def whatsapp(request: Request):
 
     if productos_ambiguos:
         mensajes = []
+
+        nombres_ambiguos_normalizados = {
+            normalizar(producto)
+            for producto in productos_ambiguos
+        }
+
+        pedido["items"] = [
+            item
+            for item in pedido.get("items", [])
+            if normalizar(item.get("producto", ""))
+            not in nombres_ambiguos_normalizados
+        ]
 
         for ambiguo in productos_ambiguos:
             opciones = opciones_por_producto(ambiguo)
