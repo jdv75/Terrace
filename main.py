@@ -769,7 +769,50 @@ async def whatsapp(request: Request):
 
     mensaje_lower = mensaje.strip().lower()
 
+    mensajes_cancelacion = {
+        "cancelar",
+        "cancelar pedido",
+        "cancela el pedido",
+        "cancela mi pedido",
+        "quiero cancelar",
+        "quiero cancelar el pedido",
+        "ya no quiero el pedido",
+        "ya no voy a pedir",
+        "no voy a pedir",
+        "olvida el pedido",
+        "anula el pedido",
+        "anular pedido"
+    }
+
     pedido_actual = obtener_conversacion(numero)
+
+    if mensaje_lower in mensajes_cancelacion:
+        pedido_en_proceso = (
+            bool(pedido_actual.get("items"))
+            or bool(pedido_actual.get("nombre"))
+            or bool(pedido_actual.get("tipo_entrega"))
+            or bool(pedido_actual.get("direccion"))
+            or bool(pedido_actual.get("metodo_pago"))
+            or pedido_actual.get("esperando_confirmacion", False)
+            or pedido_actual.get("esperando_metodo_pago", False)
+        )
+
+        borrar_conversacion(numero)
+
+        if pedido_en_proceso:
+            enviar_texto(
+                numero,
+                "Tu pedido fue cancelado correctamente ❌\n\n"
+                "Cuando quieras hacer uno nuevo, solo escríbeme."
+            )
+        else:
+            enviar_texto(
+                numero,
+                "No tienes ningún pedido en proceso.\n\n"
+                "Cuando quieras hacer uno, solo escríbeme 😊"
+            )
+
+        return finalizar_webhook(message_id, numero)
 
     respuestas_confirmacion = {
         "si", "sí", "confirmo", "confirmado", "correcto",
@@ -816,6 +859,51 @@ async def whatsapp(request: Request):
         pedido_actual["esperando_confirmacion"] = False
         pedido_actual["pedido_confirmado"] = False
         guardar_conversacion(numero, pedido_actual)
+
+    # Si el pedido ya fue confirmado, solamente falta recibir
+    # un método de pago válido.
+    if pedido_actual.get("esperando_metodo_pago"):
+
+        respuestas_efectivo = {
+            "efectivo",
+            "en efectivo",
+            "cash",
+            "pago en efectivo",
+            "quiero pagar en efectivo"
+        }
+
+        respuestas_transferencia = {
+            "transferencia",
+            "por transferencia",
+            "pago por transferencia",
+            "quiero pagar por transferencia",
+            "transferir",
+            "transfiero",
+            "nequi",
+            "qr",
+            "codigo qr",
+            "código qr"
+        }
+
+        if mensaje_lower in respuestas_efectivo:
+            pedido_actual["metodo_pago"] = "efectivo"
+            pedido_actual["esperando_metodo_pago"] = False
+            guardar_conversacion(numero, pedido_actual)
+
+        elif mensaje_lower in respuestas_transferencia:
+            pedido_actual["metodo_pago"] = "transferencia"
+            pedido_actual["esperando_metodo_pago"] = False
+            guardar_conversacion(numero, pedido_actual)
+
+        else:
+            enviar_texto(
+                numero,
+                "Aún me falta saber el método de pago 😊\n\n"
+                "Puedes responder *efectivo* o *transferencia*.\n\n"
+                "También puedes escribir *cancelar* para detener el pedido."
+            )
+
+            return finalizar_webhook(message_id, numero)
 
     mensajes_transferencia = [
         "transferencia",
@@ -870,7 +958,9 @@ async def whatsapp(request: Request):
     if mensaje_lower == "2":
         enviar_texto(
             numero,
-            "Perfecto 😊 ¿Qué productos deseas ordenar y en qué cantidades?"
+            "Perfecto 😊 ¿Qué productos deseas ordenar y en qué cantidades?\n\n"
+            "Puedes cancelar el pedido en cualquier momento antes de confirmarlo "
+            "escribiendo *cancelar* o *cancelar pedido*."
         )
         return finalizar_webhook(message_id, numero)
 
@@ -1396,12 +1486,21 @@ async def whatsapp(request: Request):
         return finalizar_webhook(message_id, numero)
 
     if len(faltantes) == 0:
-        items_texto = ", ".join(
-            [
-                f"{item['cantidad']} x {item['producto']}"
-                for item in pedido.get("items", [])
-            ]
-        )
+        items_resumen = []
+
+        for item in pedido.get("items", []):
+            cantidad = item.get("cantidad", "1")
+            producto = item.get("producto", "")
+            notas_item = item.get("notas", "").strip()
+
+            texto_item = f"{cantidad} x {producto}"
+
+            if notas_item:
+                texto_item += f" ({notas_item})"
+
+            items_resumen.append(texto_item)
+
+        items_texto = "\n".join(items_resumen)
 
         total = calcular_total(pedido)
 
@@ -1425,7 +1524,9 @@ async def whatsapp(request: Request):
                 f"📍 Entrega: {entrega_texto}\n"
                 f"💰 Total: ${total:,} COP\n\n"
                 "¿Está correcto? Responde *sí* para confirmar "
-                "o indícame qué deseas cambiar."
+                "o indícame qué deseas cambiar.\n\n"
+                "También puedes escribir *cancelar* o *cancelar pedido* "
+                "para detener el proceso."
             )
 
             return finalizar_webhook(message_id, numero)
@@ -1448,7 +1549,8 @@ async def whatsapp(request: Request):
 
         enviar_texto(
             numero,
-            f"Perfecto, recibimos tu pedido: {items_texto}.\n\n"
+            "Perfecto, recibimos tu pedido ✅\n\n"
+            f"🛒 Pedido:\n{items_texto}\n\n"
             f"💰 Total: ${total:,} COP.\n\n"
             "En un momento te confirmamos."
         )
