@@ -871,17 +871,79 @@ async def whatsapp(request: Request):
         if mensaje_lower in respuestas_confirmacion:
             pedido_actual["esperando_confirmacion"] = False
             pedido_actual["pedido_confirmado"] = True
-            pedido_actual["esperando_metodo_pago"] = True
             pedido_actual["fecha_confirmacion"] = datetime.now().strftime(
                 "%Y-%m-%d %H:%M:%S"
             )
+
+            metodo_pago = pedido_actual.get(
+                "metodo_pago",
+                ""
+            ).strip().lower()
+
+            # Si todavía no indicó el método de pago, se lo preguntamos.
+            if metodo_pago not in {"efectivo", "transferencia"}:
+                pedido_actual["esperando_metodo_pago"] = True
+                guardar_conversacion(numero, pedido_actual)
+
+                enviar_texto(
+                    numero,
+                    "¡Perfecto! Pedido confirmado ✅\n\n"
+                    "¿Cuál será el método de pago? "
+                    "Tenemos efectivo o transferencia."
+                )
+
+                return finalizar_webhook(message_id, numero)
+
+            # Si ya indicó el método de pago en un mensaje anterior,
+            # no se lo preguntamos nuevamente.
+            pedido_actual["esperando_metodo_pago"] = False
             guardar_conversacion(numero, pedido_actual)
+
+            items_resumen = []
+
+            for item in pedido_actual.get("items", []):
+                cantidad = item.get("cantidad", "1")
+                producto = item.get("producto", "")
+                notas_item = item.get("notas", "").strip()
+
+                texto_item = f"{cantidad} x {producto}"
+
+                if notas_item:
+                    texto_item += f" ({notas_item})"
+
+                items_resumen.append(texto_item)
+
+            items_texto = "\n".join(items_resumen)
+            total = calcular_total(pedido_actual)
+
+            guardar_pedido_db(numero, pedido_actual)
 
             enviar_texto(
                 numero,
-                "¡Perfecto! Pedido confirmado ✅\n\n"
-                "¿Cuál será el método de pago? Tenemos efectivo o transferencia."
+                "Perfecto, recibimos tu pedido ✅\n\n"
+                f"🛒 Pedido:\n{items_texto}\n\n"
+                f"💰 Total: ${total:,} COP.\n\n"
+                f"💳 Método de pago: {metodo_pago.capitalize()}\n\n"
+                "En un momento te confirmamos."
             )
+
+            if metodo_pago == "transferencia":
+                enviar_texto(
+                    numero,
+                    "Puedes hacer la transferencia usando este código QR:"
+                )
+
+                qr_enviado = enviar_imagen(numero)
+
+                if not qr_enviado:
+                    enviar_texto(
+                        numero,
+                        "Lo siento, no pude enviar el código QR. "
+                        "El personal de Terrace te ayudará con la transferencia."
+                    )
+
+            borrar_conversacion(numero)
+
             return finalizar_webhook(message_id, numero)
 
         if mensaje_lower in respuestas_cambio:
@@ -1135,7 +1197,16 @@ async def whatsapp(request: Request):
 
     PRODUCTOS AMBIGUOS:
 
-    Si pide una categoría general que tiene varias opciones, no elijas una arbitrariamente.
+    Si pide una categoría general que realmente exista en el menú y tenga varias opciones,
+    no elijas una arbitrariamente.
+
+    Solo puede considerarse ambiguo un término si existen dos o más productos del menú
+    cuyos nombres contienen claramente ese término.
+
+    Por ejemplo:
+    - "limonada" es ambiguo si existen varias limonadas en el menú.
+    - "malteada" es ambiguo si existen varias malteadas en el menú.
+    - "capuccino" es ambiguo si existen varias opciones de capuccino.
 
     Ejemplos:
 
@@ -1149,6 +1220,13 @@ async def whatsapp(request: Request):
     Agrégala a "productos_ambiguos" y no a "items".
 
     Si luego aclara la opción, elimina la ambigüedad y agrega el producto exacto.
+
+    IMPORTANTE:
+
+    "postre" no existe como categoría ni como producto en el menú.
+    Si el cliente pide "postre", "postres", "postre de leche" o cualquier postre
+    que no aparezca exactamente en el menú, agrégalo a
+    "productos_no_disponibles", no a "productos_ambiguos".
 
     PRODUCTOS NO DISPONIBLES:
 
