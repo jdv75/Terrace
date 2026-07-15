@@ -969,20 +969,51 @@ async def whatsapp(request: Request):
 
     TIPO DE ENTREGA:
 
+    TIPO DE ENTREGA:
+
     "tipo_entrega" solo puede ser:
 
     - "recoger"
     - "domicilio"
     - ""
 
-    Usa "domicilio" para expresiones como:
+    IMPORTANTE:
 
-    - domicilio
-    - delivery
-    - enviar
-    - llévalo
-    - me lo traen
-    - para el local
+    Si el cliente responde únicamente con un número o nombre de local,
+    debe asumirse que el pedido es para llevar al local.
+
+    Ejemplos:
+
+    "Local 26"
+    → tipo_entrega = "domicilio"
+    → direccion = "Local 26"
+
+    "26"
+    → tipo_entrega = "domicilio"
+    → direccion = "Local 26"
+
+    "L3-26"
+    → tipo_entrega = "domicilio"
+    → direccion = "L3-26"
+
+    "Zona Múltiple"
+    → tipo_entrega = "domicilio"
+    → direccion = "Zona Múltiple"
+
+    "Tecni Play Sur"
+    → tipo_entrega = "domicilio"
+    → direccion = "Tecni Play Sur"
+
+    Siempre que el mensaje sea únicamente una ubicación o un local,
+    interpreta que el cliente respondió a la pregunta
+    "¿Es para llevar a un local o pasas a recogerlo?"
+
+    Si el mensaje del cliente contiene únicamente un local o una ubicación,
+    además de llenar "direccion", debes establecer automáticamente:
+
+    "tipo_entrega": "domicilio"
+
+    aunque el cliente nunca haya escrito la palabra "domicilio".
 
     Usa "recoger" para expresiones como:
 
