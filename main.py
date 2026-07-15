@@ -175,8 +175,7 @@ def obtener_conversacion(numero):
         "direccion": "",
         "hora": "",
         "metodo_pago": "",
-        "notas": "",
-        "confirmar_direccion_guardada": ""
+        "notas": ""
     }
 
 def guardar_mensaje(telefono, nombre, mensaje, direccion):
@@ -331,7 +330,10 @@ def finalizar_webhook(message_id, numero):
     if message_id:
         marcar_mensaje_procesado(message_id, numero)
 
-    return finalizar_webhook(message_id, numero)
+    return Response(
+        content="EVENT_RECEIVED",
+        media_type="text/plain"
+    )
 
 def normalizar(texto):
     texto = texto.lower().strip()
@@ -806,33 +808,7 @@ async def whatsapp(request: Request):
                 )
 
             return finalizar_webhook(message_id, numero)
-
-    if pedido_actual.get("confirmar_direccion_guardada"):
-        direccion_guardada = pedido_actual["confirmar_direccion_guardada"]
-
-        respuestas_si = ["si", "sí", "claro", "dale", "ok", "okay", "correcto", "yes"]
-
-        if mensaje_lower in respuestas_si:
-            pedido_actual["direccion"] = direccion_guardada
-        else:
-            pedido_actual["direccion"] = mensaje.strip()
-
-        pedido_actual["confirmar_direccion_guardada"] = ""
-
-        guardar_contacto(
-            numero,
-            pedido_actual.get("nombre") or None,
-            pedido_actual.get("direccion") or None
-        )
-
-        guardar_conversacion(numero, pedido_actual)
-
-        enviar_texto(
-            numero,
-            "Perfecto, ya tengo el número del local para este pedido."
-        )
-
-        return finalizar_webhook(message_id, numero)
+        
 
     menu_pdf_url = f"{PUBLIC_BASE_URL}/static/menu.pdf"
     qr_url = f"{PUBLIC_BASE_URL}/static/qr_transferencia.jpeg"
@@ -844,10 +820,10 @@ async def whatsapp(request: Request):
 
     pedido_actual = obtener_conversacion(numero)
 
-    contacto = obtener_contacto(numero)
+    # contacto = obtener_contacto(numero)
 
-    if contacto and contacto.get("nombre"):
-        pedido_actual["nombre"] = contacto["nombre"]
+    # if contacto and contacto.get("nombre"):
+    #     pedido_actual["nombre"] = contacto["nombre"]
 
     try:
         inicio_openai = time.time()
@@ -1203,11 +1179,6 @@ async def whatsapp(request: Request):
             ""
         )
 
-        pedido["confirmar_direccion_guardada"] = pedido_actual.get(
-            "confirmar_direccion_guardada",
-            ""
-        )
-
     except Exception as e:
         print("ERROR OPENAI:", repr(e))
         traceback.print_exc()
@@ -1223,17 +1194,11 @@ async def whatsapp(request: Request):
             media_type="text/plain"
         )
 
-    contacto = obtener_contacto(numero)
+    # contacto = obtener_contacto(numero)
 
-    if contacto and contacto.get("nombre") and not pedido.get("nombre"):
-        pedido["nombre"] = contacto["nombre"]
+    # if contacto and contacto.get("nombre") and not pedido.get("nombre"):
+    #     pedido["nombre"] = contacto["nombre"]
 
-    if pedido.get("nombre") or pedido.get("direccion"):
-        guardar_contacto(
-            numero,
-            pedido.get("nombre") or None,
-            pedido.get("direccion") or None
-        )
     guardar_conversacion(numero, pedido)
 
     tipo = pedido.get("tipo", "").lower()
@@ -1261,25 +1226,6 @@ async def whatsapp(request: Request):
     productos_no_disponibles = pedido.get("productos_no_disponibles", [])
 
     tipo_entrega = pedido.get("tipo_entrega", "").strip().lower()
-
-    contacto = obtener_contacto(numero)
-
-    if (
-        contacto
-        and contacto.get("direccion")
-        and tipo_entrega == "domicilio"
-        and not pedido.get("direccion")
-    ):
-        pedido["confirmar_direccion_guardada"] = contacto["direccion"]
-        guardar_conversacion(numero, pedido)
-
-        enviar_texto(
-            numero,
-            f"Ya tenemos registrado este número de local: {contacto['direccion']}.\n\n"
-            "¿Deseas usar ese mismo número para este pedido? Responde 'sí' o envía el nuevo número."
-        )
-
-        return finalizar_webhook(message_id, numero)
 
     for campo in CAMPOS_OBLIGATORIOS:
         if campo == "direccion":
@@ -1354,6 +1300,8 @@ async def whatsapp(request: Request):
             f"💰 Total: ${total:,} COP.\n\n"
             "En un momento te confirmamos."
         )
+
+        borrar_conversacion(numero)
 
         if pedido.get("metodo_pago", "").strip().lower() == "transferencia":
             enviar_texto(
