@@ -52,8 +52,7 @@ CAMPOS_OBLIGATORIOS = [
     "nombre",
     "items",
     "tipo_entrega",
-    "direccion",
-    "metodo_pago"
+    "direccion"
 ]
 
 def crear_tabla():
@@ -175,7 +174,11 @@ def obtener_conversacion(numero):
         "direccion": "",
         "hora": "",
         "metodo_pago": "",
-        "notas": ""
+        "notas": "",
+        "esperando_confirmacion": False,
+        "pedido_confirmado": False,
+        "esperando_metodo_pago": False,
+        "fecha_confirmacion": ""
     }
 
 def guardar_mensaje(telefono, nombre, mensaje, direccion):
@@ -768,6 +771,52 @@ async def whatsapp(request: Request):
 
     pedido_actual = obtener_conversacion(numero)
 
+    respuestas_confirmacion = {
+        "si", "sí", "confirmo", "confirmado", "correcto",
+        "esta bien", "está bien", "todo bien", "de acuerdo",
+        "ok", "okay", "listo"
+    }
+
+    respuestas_cambio = {
+        "no", "cambiar", "cambio", "quiero cambiar",
+        "hacer un cambio", "modificar", "corregir"
+    }
+
+    # Si ya se mostró el resumen, esta respuesta decide si se confirma
+    # o si el cliente quiere modificar el pedido.
+    if pedido_actual.get("esperando_confirmacion"):
+        if mensaje_lower in respuestas_confirmacion:
+            pedido_actual["esperando_confirmacion"] = False
+            pedido_actual["pedido_confirmado"] = True
+            pedido_actual["esperando_metodo_pago"] = True
+            pedido_actual["fecha_confirmacion"] = datetime.now().strftime(
+                "%Y-%m-%d %H:%M:%S"
+            )
+            guardar_conversacion(numero, pedido_actual)
+
+            enviar_texto(
+                numero,
+                "¡Perfecto! Pedido confirmado ✅\n\n"
+                "¿Cuál será el método de pago? Tenemos efectivo o transferencia."
+            )
+            return finalizar_webhook(message_id, numero)
+
+        if mensaje_lower in respuestas_cambio:
+            pedido_actual["esperando_confirmacion"] = False
+            pedido_actual["pedido_confirmado"] = False
+            guardar_conversacion(numero, pedido_actual)
+
+            enviar_texto(
+                numero,
+                "Claro 😊 ¿Qué deseas cambiar del pedido?"
+            )
+            return finalizar_webhook(message_id, numero)
+
+        # Si escribe directamente el cambio, dejamos que OpenAI lo procese.
+        pedido_actual["esperando_confirmacion"] = False
+        pedido_actual["pedido_confirmado"] = False
+        guardar_conversacion(numero, pedido_actual)
+
     mensajes_transferencia = [
         "transferencia",
         "transferencia por favor",
@@ -812,6 +861,18 @@ async def whatsapp(request: Request):
 
     menu_pdf_url = f"{PUBLIC_BASE_URL}/static/menu.pdf"
     qr_url = f"{PUBLIC_BASE_URL}/static/qr_transferencia.jpeg"
+
+    if mensaje_lower == "1":
+        enviar_texto(numero, "Claro, aquí tienes nuestro menú 📋")
+        enviar_documento(numero, menu_pdf_url, "Menu Terrace.pdf")
+        return finalizar_webhook(message_id, numero)
+
+    if mensaje_lower == "2":
+        enviar_texto(
+            numero,
+            "Perfecto 😊 ¿Qué productos deseas ordenar y en qué cantidades?"
+        )
+        return finalizar_webhook(message_id, numero)
 
     if "menu" in mensaje_lower or "menú" in mensaje_lower:
         enviar_texto(numero, "Claro, aquí tienes nuestro menú 📋")
@@ -1210,6 +1271,16 @@ async def whatsapp(request: Request):
             ""
         )
 
+        pedido["esperando_confirmacion"] = pedido_actual.get(
+            "esperando_confirmacion",
+            False
+        )
+
+        pedido["esperando_metodo_pago"] = pedido_actual.get(
+            "esperando_metodo_pago",
+            False
+        )
+
     except Exception as e:
         print("ERROR OPENAI:", repr(e))
         traceback.print_exc()
@@ -1238,9 +1309,11 @@ async def whatsapp(request: Request):
         enviar_texto(
             numero,
             "¡Hola! Bienvenido a Terrace ☕🍰\n\n"
-            "Te comparto nuestro menú. Cuando estés listo, puedes enviarme tu pedido."
+            "Por favor, escribe el número de tu opción:\n\n"
+            "1. Ver el menú\n"
+            "2. Hacer un pedido"
         )
-        enviar_documento(numero, menu_pdf_url, "Menu Terrace.pdf")
+
         return finalizar_webhook(message_id, numero)
 
     if tipo == "menu":
@@ -1301,21 +1374,6 @@ async def whatsapp(request: Request):
         return finalizar_webhook(message_id, numero)
 
     if len(faltantes) == 0:
-        pedido_ya_confirmado = pedido_actual.get(
-            "pedido_confirmado",
-            False
-        )
-
-        if not pedido_ya_confirmado:
-            guardar_pedido_db(numero, pedido)
-
-        pedido["pedido_confirmado"] = True
-        pedido["fecha_confirmacion"] = datetime.now().strftime(
-            "%Y-%m-%d %H:%M:%S"
-        )
-
-        guardar_conversacion(numero, pedido)
-
         items_texto = ", ".join(
             [
                 f"{item['cantidad']} x {item['producto']}"
@@ -1325,14 +1383,53 @@ async def whatsapp(request: Request):
 
         total = calcular_total(pedido)
 
+        # 1. Primero se muestra el resumen y se pide confirmación.
+        if not pedido.get("pedido_confirmado", False):
+            pedido["esperando_confirmacion"] = True
+            pedido["esperando_metodo_pago"] = False
+            guardar_conversacion(numero, pedido)
+
+            entrega_texto = (
+                "Recoger en Terrace"
+                if pedido.get("tipo_entrega") == "recoger"
+                else pedido.get("direccion", "")
+            )
+
+            enviar_texto(
+                numero,
+                "Por favor confirma tu pedido:\n\n"
+                f"👤 Nombre: {pedido.get('nombre', '')}\n"
+                f"🛒 Pedido: {items_texto}\n"
+                f"📍 Entrega: {entrega_texto}\n"
+                f"💰 Total: ${total:,} COP\n\n"
+                "¿Está correcto? Responde *sí* para confirmar "
+                "o indícame qué deseas cambiar."
+            )
+
+            return finalizar_webhook(message_id, numero)
+
+        # 2. Después de confirmar, se pregunta el método de pago.
+        if not pedido.get("metodo_pago"):
+            pedido["esperando_metodo_pago"] = True
+            guardar_conversacion(numero, pedido)
+
+            enviar_texto(
+                numero,
+                "¿Cuál será el método de pago? "
+                "Tenemos efectivo o transferencia."
+            )
+
+            return finalizar_webhook(message_id, numero)
+
+        # 3. Solo ahora se agrega a la base de datos y al dashboard.
+        guardar_pedido_db(numero, pedido)
+
         enviar_texto(
             numero,
             f"Perfecto, recibimos tu pedido: {items_texto}.\n\n"
             f"💰 Total: ${total:,} COP.\n\n"
             "En un momento te confirmamos."
         )
-
-        borrar_conversacion(numero)
 
         if pedido.get("metodo_pago", "").strip().lower() == "transferencia":
             enviar_texto(
@@ -1348,6 +1445,11 @@ async def whatsapp(request: Request):
                     "Lo siento, no pude enviar el código QR. "
                     "El personal de Terrace te ayudará con la transferencia."
                 )
+
+        # La última pregunta ya fue respondida y el pedido quedó guardado.
+        # Se elimina el estado para que el siguiente mensaje inicie un pedido nuevo.
+        borrar_conversacion(numero)
+
     else:
         campo = faltantes[0]
 
