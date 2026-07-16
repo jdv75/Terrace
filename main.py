@@ -8,7 +8,8 @@ from fastapi.responses import Response, RedirectResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 import psycopg2
 from psycopg2.extras import RealDictCursor
-from datetime import datetime
+from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 import os
 import json
 from dotenv import load_dotenv
@@ -26,6 +27,11 @@ from rapidfuzz import process, fuzz
 from fastapi.staticfiles import StaticFiles
 
 load_dotenv()
+
+ZONA_HORARIA = ZoneInfo("America/Bogota")
+
+def hora_local():
+    return datetime.now(ZONA_HORARIA).strftime("%Y-%m-%d %H:%M:%S")
 
 with open("menu.json", "r", encoding="utf-8") as file:
     MENU = json.load(file)
@@ -202,7 +208,7 @@ def guardar_mensaje(telefono, nombre, mensaje, direccion):
         nombre,
         mensaje,
         direccion,
-        datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        hora_local(),
         True if direccion == "out" else False
     ))
 
@@ -259,8 +265,8 @@ def guardar_contacto(telefono, nombre=None, direccion=None):
         telefono,
         nombre,
         direccion,
-        datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        hora_local(),
+        hora_local()
     ))
 
     conn.commit()
@@ -281,7 +287,7 @@ def guardar_conversacion(numero, pedido):
     """, (
         numero,
         json.dumps(pedido, ensure_ascii=False),
-        datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        hora_local()
     ))
 
     conn.commit()
@@ -423,7 +429,7 @@ def marcar_mensaje_procesado(message_id, telefono=None):
     """, (
         message_id,
         telefono,
-        datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        hora_local()
     ))
 
     conn.commit()
@@ -569,7 +575,7 @@ def guardar_pedido_db(numero, pedido):
         ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         RETURNING id
     """, (
-        datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        hora_local(),
         numero,
         pedido.get("nombre", ""),
         pedido.get("tipo_entrega", ""),
@@ -1112,9 +1118,7 @@ async def whatsapp(request: Request):
             pedido_actual["pedido_confirmado"] = True
             pedido_actual["esperando_metodo_pago"] = False
             pedido_actual["metodo_pago"] = ""
-            pedido_actual["fecha_confirmacion"] = datetime.now().strftime(
-                "%Y-%m-%d %H:%M:%S"
-            )
+            pedido_actual["fecha_confirmacion"] = hora_local()
 
             guardar_pedido_db(numero, pedido_actual)
 
@@ -1374,6 +1378,26 @@ async def whatsapp(request: Request):
 
     aunque el cliente nunca haya escrito la palabra "domicilio".
 
+    Usa "domicilio" cuando el cliente escriba expresiones como:
+
+    - llevar
+    - para llevar
+    - es para llevar
+    - me lo llevan
+    - que me lo lleven
+    - domicilio
+    - a domicilio
+    - enviar al local
+    - llevar al local
+
+    Si el cliente responde solamente "llevar" o "para llevar":
+
+    - establece "tipo_entrega": "domicilio";
+    - conserva "direccion": "" si todavía no indicó el local;
+    - no inventes ningún número o nombre de local.
+
+    La aplicación debe preguntarle después cuál es el número o nombre del local.
+
     Usa "recoger" para expresiones como:
 
     - recoger
@@ -1551,6 +1575,24 @@ async def whatsapp(request: Request):
 
         pedido = json.loads(data)
         pedido = validar_items_pedido(pedido)
+
+        respuestas_domicilio = {
+            "llevar",
+            "para llevar",
+            "es para llevar",
+            "domicilio",
+            "a domicilio",
+            "me lo llevan",
+            "que me lo lleven"
+        }
+
+        if mensaje_normalizado in respuestas_domicilio:
+            pedido["tipo_entrega"] = "domicilio"
+
+            # Si todavía no indicó un local, se deja vacío
+            # para que el sistema se lo pregunte.
+            if not pedido.get("direccion"):
+                pedido["direccion"] = ""
 
         pedido["pedido_confirmado"] = pedido_actual.get(
             "pedido_confirmado",
@@ -1747,7 +1789,7 @@ async def whatsapp(request: Request):
             "nombre": "Perfecto. ¿A nombre de quien la orden?",
             "items": "¿Qué productos deseas ordenar y en qué cantidades?",
             "tipo_entrega": "¿Es para llevar a un local o pasas a recogerlo?",
-            "direccion": "¿Cuál es el numero del local?"
+            "direccion": "¿Cuál es el número o nombre del local?"
         }
 
         enviar_texto(numero, preguntas.get(campo, "Me falta información para completar tu pedido."))
