@@ -902,11 +902,31 @@ async def whatsapp(request: Request):
                 media_type="text/plain"
             )
 
+        if tipo_mensaje == "audio":
+            nombre = value.get(
+                "contacts",
+                [{}]
+            )[0].get("profile", {}).get("name", "")
+
+            guardar_mensaje(
+                numero,
+                nombre,
+                "🎤 El cliente envió un audio",
+                "in"
+            )
+
+            enviar_texto(
+                numero,
+                "Solo recibimos mensajes de texto y llamadas al número de teléfono, "
+                "no audios por WhatsApp."
+            )
+
+            return finalizar_webhook(message_id, numero)
+
         if tipo_mensaje != "text":
             enviar_texto(
                 numero,
-                "Por ahora solo puedo recibir mensajes de texto. "
-                "Escríbeme tu pedido o pide el menú 😊"
+                "Solo recibimos mensajes de texto y llamadas al número de teléfono."
             )
 
             return finalizar_webhook(message_id, numero)
@@ -925,6 +945,61 @@ async def whatsapp(request: Request):
     mensaje_lower = mensaje.strip().lower()
 
     mensaje_normalizado = normalizar(mensaje)
+
+    consultas_estado_pedido = [
+        "se demora",
+        "se demoran",
+        "demora",
+        "demoran",
+        "demora mucho",
+        "demoran mucho",
+        "cuanto demora",
+        "cuanto se demora",
+        "cuanto demoran",
+        "cuanto se demoran",
+        "cuanto tarda",
+        "cuanto tardan",
+        "tarda",
+        "tardan",
+        "me confirmas cuanto tarda",
+        "me confirma cuanto tarda",
+        "ya vienen",
+        "ya viene",
+        "ya va",
+        "ya salio",
+        "ya sale",
+        "como va el pedido",
+        "como va mi pedido",
+        "estado del pedido",
+        "cuando llega",
+        "cuando llegan",
+        "cuando viene",
+        "cuando vienen",
+        "falta mucho",
+        "cuanto falta",
+        "en cuanto llega",
+        "en cuanto tiempo llega"
+    ]
+
+    consulta_estado = any(
+        frase in mensaje_normalizado
+        for frase in consultas_estado_pedido
+    )
+
+    if consulta_estado:
+        activar_atencion_humana(
+            numero,
+            minutos=30,
+            motivo="Consulta sobre el estado o demora del pedido"
+        )
+
+        enviar_texto(
+            numero,
+            "Un momento por favor 😊 Un miembro del equipo revisará "
+            "el estado de tu pedido y te responderá."
+        )
+
+        return finalizar_webhook(message_id, numero)
 
     mensajes_atencion_humana = {
         "humano",
@@ -1021,7 +1096,7 @@ async def whatsapp(request: Request):
     respuestas_confirmacion = {
         "si", "sí", "confirmo", "confirmado", "correcto",
         "esta bien", "está bien", "todo bien", "de acuerdo",
-        "ok", "okay", "listo", "sii", "siii"
+        "ok", "okay", "listo", "sii", "siii", "confirmar", "confirmalo"
     }
 
     respuestas_cambio = {
@@ -1035,76 +1110,18 @@ async def whatsapp(request: Request):
         if mensaje_lower in respuestas_confirmacion:
             pedido_actual["esperando_confirmacion"] = False
             pedido_actual["pedido_confirmado"] = True
+            pedido_actual["esperando_metodo_pago"] = False
+            pedido_actual["metodo_pago"] = ""
             pedido_actual["fecha_confirmacion"] = datetime.now().strftime(
                 "%Y-%m-%d %H:%M:%S"
             )
-
-            metodo_pago = pedido_actual.get(
-                "metodo_pago",
-                ""
-            ).strip().lower()
-
-            # Si todavía no indicó el método de pago, se lo preguntamos.
-            if metodo_pago not in {"efectivo", "transferencia"}:
-                pedido_actual["esperando_metodo_pago"] = True
-                guardar_conversacion(numero, pedido_actual)
-
-                enviar_texto(
-                    numero,
-                    "¡Perfecto! Pedido confirmado ✅\n\n"
-                    "¿Cuál será el método de pago? "
-                    "Tenemos efectivo o transferencia."
-                )
-
-                return finalizar_webhook(message_id, numero)
-
-            # Si ya indicó el método de pago en un mensaje anterior,
-            # no se lo preguntamos nuevamente.
-            pedido_actual["esperando_metodo_pago"] = False
-            guardar_conversacion(numero, pedido_actual)
-
-            items_resumen = []
-
-            for item in pedido_actual.get("items", []):
-                cantidad = item.get("cantidad", "1")
-                producto = item.get("producto", "")
-                notas_item = item.get("notas", "").strip()
-
-                texto_item = f"{cantidad} x {producto}"
-
-                if notas_item:
-                    texto_item += f" ({notas_item})"
-
-                items_resumen.append(texto_item)
-
-            items_texto = "\n".join(items_resumen)
-            total = calcular_total(pedido_actual)
 
             guardar_pedido_db(numero, pedido_actual)
 
             enviar_texto(
                 numero,
-                "Perfecto, recibimos tu pedido ✅\n\n"
-                f"🛒 Pedido:\n{items_texto}\n\n"
-                f"💰 Total: ${total:,} COP.\n\n"
-                f"💳 Método de pago: {metodo_pago.capitalize()}\n\n"
-                "En un momento te confirmamos."
+                "✅ Listo. Tu pedido fue recibido."
             )
-
-            if metodo_pago == "transferencia":
-                enviar_texto(
-                    numero,
-                    "Puedes hacer la transferencia usando este código QR:"
-                )
-
-                qr_enviado = enviar_imagen(numero)
-
-                if not qr_enviado:
-                    enviar_texto(
-                        numero,
-                        "Lo siento, no pude enviar el código QR. "
-                        "El personal de Terrace te ayudará con la transferencia."
-                    )
 
             borrar_conversacion(numero)
 
@@ -1125,96 +1142,6 @@ async def whatsapp(request: Request):
         pedido_actual["esperando_confirmacion"] = False
         pedido_actual["pedido_confirmado"] = False
         guardar_conversacion(numero, pedido_actual)
-
-    # Si el pedido ya fue confirmado, solamente falta recibir
-    # un método de pago válido.
-    if pedido_actual.get("esperando_metodo_pago"):
-
-        respuestas_efectivo = {
-            "efectivo",
-            "en efectivo",
-            "cash",
-            "pago en efectivo",
-            "quiero pagar en efectivo"
-        }
-
-        respuestas_transferencia = {
-            "transferencia",
-            "por transferencia",
-            "pago por transferencia",
-            "quiero pagar por transferencia",
-            "transferir",
-            "transfiero",
-            "nequi",
-            "qr",
-            "codigo qr",
-            "código qr"
-        }
-
-        if mensaje_lower in respuestas_efectivo:
-            pedido_actual["metodo_pago"] = "efectivo"
-            pedido_actual["esperando_metodo_pago"] = False
-            guardar_conversacion(numero, pedido_actual)
-
-        elif mensaje_lower in respuestas_transferencia:
-            pedido_actual["metodo_pago"] = "transferencia"
-            pedido_actual["esperando_metodo_pago"] = False
-            guardar_conversacion(numero, pedido_actual)
-
-        else:
-            enviar_texto(
-                numero,
-                "Aún me falta saber el método de pago 😊\n\n"
-                "Puedes responder *efectivo* o *transferencia*.\n\n"
-                "También puedes escribir *cancelar* para detener el pedido."
-            )
-
-            return finalizar_webhook(message_id, numero)
-
-    mensajes_transferencia = [
-        "transferencia",
-        "transferencia por favor",
-        "pago por transferencia",
-        "quiero pagar por transferencia",
-        "qr",
-        "codigo qr",
-        "código qr",
-        "mandame el qr",
-        "mándame el qr"
-    ]
-
-    pedido_vacio = (
-        not pedido_actual.get("items")
-        and not pedido_actual.get("nombre")
-        and not pedido_actual.get("tipo_entrega")
-        and not pedido_actual.get("direccion")
-    )
-
-    if mensaje_lower in mensajes_transferencia and pedido_vacio:
-        ultimo_pedido = obtener_ultimo_pedido_reciente(numero)
-
-        if (
-            ultimo_pedido
-            and ultimo_pedido.get("metodo_pago", "").lower() == "transferencia"
-        ):
-            enviar_texto(
-                numero,
-                "Claro, te envío nuevamente el código QR:"
-            )
-
-            qr_enviado = enviar_imagen(numero)
-
-            if not qr_enviado:
-                enviar_texto(
-                    numero,
-                    "Lo siento, no pude enviar el código QR en este momento."
-                )
-
-            return finalizar_webhook(message_id, numero)
-        
-
-    menu_pdf_url = f"{PUBLIC_BASE_URL}/static/menu.pdf"
-    qr_url = f"{PUBLIC_BASE_URL}/static/qr_transferencia.jpeg"
 
     if mensaje_lower == "1":
         enviar_texto(numero, "Claro, aquí tienes nuestro menú 📋")
@@ -1305,7 +1232,6 @@ async def whatsapp(request: Request):
     - su nombre;
     - el tipo de entrega;
     - la dirección o local;
-    - el método de pago;
     - una nota;
     - una cantidad;
     - una corrección.
@@ -1318,7 +1244,6 @@ async def whatsapp(request: Request):
     "Menú por favor" → menu
     "Zona Múltiple" → pedido
     "L3-26" → pedido
-    "Transferencia" → pedido
 
     REGLAS GENERALES:
 
@@ -1517,21 +1442,6 @@ async def whatsapp(request: Request):
 
     No guardes nombres de establecimientos en "nombre".
 
-    MÉTODO DE PAGO:
-
-    "metodo_pago" solo puede ser:
-
-    - "efectivo"
-    - "transferencia"
-    - ""
-
-    Convierte expresiones como:
-
-    - cash → efectivo
-    - QR → transferencia
-    - Nequi → transferencia
-    - transfiero → transferencia
-
     Los campos "productos_ambiguos" y "productos_no_disponibles"
     describen únicamente el NUEVO MENSAJE DEL CLIENTE.
 
@@ -1559,7 +1469,7 @@ async def whatsapp(request: Request):
     2. Que no hayas eliminado información válida.
     3. Que los productos existan en el menú.
     4. Que un nombre o código de local esté en "direccion".
-    5. Que "tipo_entrega" y "metodo_pago" tengan valores permitidos.
+    5. Que "tipo_entrega" tenga un valor permitido.
 
     IMPORTANTE SOBRE LA INTENCIÓN:
 
@@ -1570,7 +1480,7 @@ async def whatsapp(request: Request):
     Los campos "tipo" y "respuesta" son temporales y describen solamente el mensaje actual.
 
     Si el nuevo mensaje contiene productos, cantidades, información de entrega,
-    dirección, local, nombre, método de pago, notas o correcciones,
+    dirección, local, nombre, notas o correcciones,
     siempre devuelve tipo="pedido", aunque el pedido anterior haya sido un saludo.
 
     Ejemplo:
@@ -1828,49 +1738,7 @@ async def whatsapp(request: Request):
             )
 
             return finalizar_webhook(message_id, numero)
-
-        # 2. Después de confirmar, se pregunta el método de pago.
-        if not pedido.get("metodo_pago"):
-            pedido["esperando_metodo_pago"] = True
-            guardar_conversacion(numero, pedido)
-
-            enviar_texto(
-                numero,
-                "¿Cuál será el método de pago? "
-                "Tenemos efectivo o transferencia."
-            )
-
-            return finalizar_webhook(message_id, numero)
-
-        # 3. Solo ahora se agrega a la base de datos y al dashboard.
-        guardar_pedido_db(numero, pedido)
-
-        enviar_texto(
-            numero,
-            "Perfecto, recibimos tu pedido ✅\n\n"
-            f"🛒 Pedido:\n{items_texto}\n\n"
-            f"💰 Total: ${total:,} COP.\n\n"
-            "En un momento te confirmamos."
-        )
-
-        if pedido.get("metodo_pago", "").strip().lower() == "transferencia":
-            enviar_texto(
-                numero,
-                "Puedes hacer la transferencia usando este código QR:"
-            )
-
-            qr_enviado = enviar_imagen(numero)
-
-            if not qr_enviado:
-                enviar_texto(
-                    numero,
-                    "Lo siento, no pude enviar el código QR. "
-                    "El personal de Terrace te ayudará con la transferencia."
-                )
-
-        # La última pregunta ya fue respondida y el pedido quedó guardado.
-        # Se elimina el estado para que el siguiente mensaje inicie un pedido nuevo.
-        borrar_conversacion(numero)
+        
 
     else:
         campo = faltantes[0]
@@ -1879,8 +1747,7 @@ async def whatsapp(request: Request):
             "nombre": "Perfecto. ¿A nombre de quien la orden?",
             "items": "¿Qué productos deseas ordenar y en qué cantidades?",
             "tipo_entrega": "¿Es para llevar a un local o pasas a recogerlo?",
-            "direccion": "¿Cuál es el numero del local?",
-            "metodo_pago": "¿Cuál será el método de pago, tenemos efectivo o transferencia?"
+            "direccion": "¿Cuál es el numero del local?"
         }
 
         enviar_texto(numero, preguntas.get(campo, "Me falta información para completar tu pedido."))
@@ -1947,7 +1814,7 @@ async def crear_pedido_manual(request: Request):
     tipo_entrega = str(form.get("tipo_entrega", "")).strip().lower()
     direccion = str(form.get("direccion", "")).strip()
     hora = str(form.get("hora", "")).strip()
-    metodo_pago = str(form.get("metodo_pago", "")).strip().lower()
+    metodo_pago = ""
     notas = str(form.get("notas", "")).strip()
 
     productos = form.getlist("producto")
@@ -1966,9 +1833,6 @@ async def crear_pedido_manual(request: Request):
         errores.append(
             "Debes ingresar el local o dirección para el domicilio."
         )
-
-    if metodo_pago not in {"efectivo", "transferencia"}:
-        errores.append("Debes seleccionar un método de pago.")
 
     items = []
 
@@ -2024,7 +1888,6 @@ async def crear_pedido_manual(request: Request):
                     "tipo_entrega": tipo_entrega,
                     "direccion": direccion,
                     "hora": hora,
-                    "metodo_pago": metodo_pago,
                     "notas": notas
                 }
             },
@@ -2037,7 +1900,7 @@ async def crear_pedido_manual(request: Request):
         "tipo_entrega": tipo_entrega,
         "direccion": direccion if tipo_entrega == "domicilio" else "",
         "hora": hora,
-        "metodo_pago": metodo_pago,
+        "metodo_pago": "",
         "notas": notas
     }
 
