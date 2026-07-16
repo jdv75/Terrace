@@ -2289,7 +2289,7 @@ async def inbox(request: Request):
         SELECT 
             m.telefono,
             MAX(m.nombre) AS nombre,
-            MAX(m.fecha) AS ultima_fecha,
+            MAX(m.fecha::timestamp) AS ultima_fecha,
             COUNT(*) FILTER (
                 WHERE m.direccion = 'in'
                 AND m.leido = FALSE
@@ -2328,7 +2328,7 @@ async def inbox_chats():
         SELECT
             m.telefono,
             MAX(m.nombre) AS nombre,
-            MAX(m.fecha) AS ultima_fecha,
+            MAX(m.fecha::timestamp) AS ultima_fecha,
             COUNT(*) FILTER (
                 WHERE m.direccion = 'in'
                 AND m.leido = FALSE
