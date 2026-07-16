@@ -1021,7 +1021,7 @@ async def whatsapp(request: Request):
     respuestas_confirmacion = {
         "si", "sí", "confirmo", "confirmado", "correcto",
         "esta bien", "está bien", "todo bien", "de acuerdo",
-        "ok", "okay", "listo"
+        "ok", "okay", "listo", "sii", "siii"
     }
 
     respuestas_cambio = {
