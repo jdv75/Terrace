@@ -112,6 +112,22 @@
             background:#16a34a;
         }
 
+        .clear-btn{
+            background:#dc2626;
+            color:white;
+            border:none;
+            padding:10px 18px;
+            border-radius:10px;
+            font-size:15px;
+            font-weight:600;
+            cursor:pointer;
+            transition:.25s;
+        }
+
+        .clear-btn:hover{
+            background:#b91c1c;
+        }
+
         .badge{
             background:#ef4444;
             color:white;
@@ -163,9 +179,19 @@
 
     <h1>Inbox de WhatsApp</h1>
 
-    <a href="/dashboard" class="dashboard-btn">
-        ← Volver al Dashboard
-    </a>
+    <div style="display:flex; gap:12px;">
+
+        <button
+            class="clear-btn"
+            onclick="borrarChats()">
+            🗑 Borrar chats del día
+        </button>
+
+        <a href="/dashboard" class="dashboard-btn">
+            ← Volver al Dashboard
+        </a>
+
+    </div>
 
 </header>
 
@@ -261,6 +287,28 @@ function actualizarInbox() {
 actualizarInbox();
 
 setInterval(actualizarInbox, 3000);
+
+async function borrarChats(){
+
+    const confirmar = confirm(
+        "¿Seguro que deseas borrar todos los chats del día?\n\nEsta acción no se puede deshacer."
+    );
+
+    if(!confirmar){
+        return;
+    }
+
+    const respuesta = await fetch("/clear/messages",{
+        method:"POST"
+    });
+
+    const data = await respuesta.json();
+
+    alert(data.status);
+
+    actualizarInbox();
+
+}
 
 </script>
 
