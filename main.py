@@ -145,6 +145,15 @@ def crear_tabla():
         )
     """)
 
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS human_handoffs (
+            telefono TEXT PRIMARY KEY,
+            activo_hasta TIMESTAMP,
+            activado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            motivo TEXT
+        )
+    """)
+
     conn.commit()
     conn.close()
 
@@ -290,6 +299,97 @@ def borrar_conversacion(numero):
 
     conn.commit()
     conn.close()
+
+def activar_atencion_humana(telefono, minutos=30, motivo="Solicitud del cliente"):
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        INSERT INTO human_handoffs (
+            telefono,
+            activo_hasta,
+            activado_en,
+            motivo
+        )
+        VALUES (
+            %s,
+            NOW() + (%s * INTERVAL '1 minute'),
+            NOW(),
+            %s
+        )
+        ON CONFLICT (telefono)
+        DO UPDATE SET
+            activo_hasta = NOW() + (%s * INTERVAL '1 minute'),
+            activado_en = NOW(),
+            motivo = EXCLUDED.motivo
+    """, (
+        telefono,
+        minutos,
+        motivo,
+        minutos
+    ))
+
+    conn.commit()
+    conn.close()
+
+
+def desactivar_atencion_humana(telefono):
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        DELETE FROM human_handoffs
+        WHERE telefono = %s
+    """, (telefono,))
+
+    conn.commit()
+    conn.close()
+
+
+def obtener_estado_atencion_humana(telefono):
+    conn = get_connection()
+    cursor = conn.cursor(cursor_factory=RealDictCursor)
+
+    cursor.execute("""
+        SELECT
+            telefono,
+            activo_hasta,
+            activado_en,
+            motivo,
+            activo_hasta > NOW() AS activo
+        FROM human_handoffs
+        WHERE telefono = %s
+    """, (telefono,))
+
+    estado = cursor.fetchone()
+    conn.close()
+
+    if not estado:
+        return {
+            "activo": False,
+            "activo_hasta": None,
+            "motivo": ""
+        }
+
+    return estado
+
+
+def atencion_humana_activa(telefono):
+    estado = obtener_estado_atencion_humana(telefono)
+    return bool(estado and estado.get("activo"))
+
+
+def renovar_atencion_humana(telefono, minutos=30):
+    """
+    Renueva el periodo solamente cuando el chat ya está
+    bajo atención humana.
+    """
+    if atencion_humana_activa(telefono):
+        activar_atencion_humana(
+            telefono,
+            minutos=minutos,
+            motivo="Conversación atendida manualmente"
+        )
 
 def mensaje_fue_procesado(message_id):
     conn = get_connection()
@@ -517,10 +617,25 @@ def enviar_texto(numero, texto):
         }
     }
 
-    response = requests.post(url, headers=headers, json=payload)
-    print("META RESPONSE:", response.status_code, response.text)
-    if response.status_code in [200, 201]:
-        guardar_mensaje(numero, "Terrace", texto, "out")
+    try:
+        response = requests.post(
+            url,
+            headers=headers,
+            json=payload,
+            timeout=30
+        )
+
+        print("META RESPONSE:", response.status_code, response.text)
+
+        if response.status_code in [200, 201]:
+            guardar_mensaje(numero, "Terrace", texto, "out")
+            return True
+
+        return False
+
+    except requests.RequestException as error:
+        print("ERROR ENVIANDO TEXTO:", str(error))
+        return False
 
 def enviar_menu(numero, link=None):
     ruta_imagen = os.path.join("static", "menu.jpeg")
@@ -809,6 +924,55 @@ async def whatsapp(request: Request):
 
     mensaje_lower = mensaje.strip().lower()
 
+    mensaje_normalizado = normalizar(mensaje)
+
+    mensajes_atencion_humana = {
+        "humano",
+        "persona",
+        "asesor",
+        "asesora",
+        "empleado",
+        "empleada",
+        "agente",
+        "hablar con humano",
+        "hablar con un humano",
+        "hablar con persona",
+        "hablar con una persona",
+        "quiero hablar con alguien",
+        "quiero hablar con un asesor",
+        "quiero hablar con una persona",
+        "necesito ayuda humana",
+        "atencion humana",
+        "servicio al cliente"
+    }
+
+    solicita_humano = (
+        mensaje_normalizado in mensajes_atencion_humana
+        or "hablar con un humano" in mensaje_normalizado
+        or "hablar con una persona" in mensaje_normalizado
+        or "hablar con alguien" in mensaje_normalizado
+        or "quiero un asesor" in mensaje_normalizado
+    )
+
+    if solicita_humano:
+        activar_atencion_humana(
+            numero,
+            minutos=30,
+            motivo="El cliente solicitó atención humana"
+        )
+
+        enviar_texto(
+            numero,
+            "Claro 😊 He solicitado la ayuda de una persona del equipo.\n\n"
+            "El asistente automático quedará pausado durante los próximos "
+            "30 minutos mientras un miembro de Terrace revisa tu conversación."
+        )
+
+        return finalizar_webhook(message_id, numero)
+    
+    if atencion_humana_activa(numero):
+        return finalizar_webhook(message_id, numero)
+
     mensajes_cancelacion = {
         "cancelar",
         "cancelar pedido",
@@ -1061,8 +1225,9 @@ async def whatsapp(request: Request):
         enviar_texto(
             numero,
             "Perfecto 😊 ¿Qué productos deseas ordenar y en qué cantidades?\n\n"
-            "Puedes cancelar el pedido en cualquier momento antes de confirmarlo "
-            "escribiendo *cancelar* o *cancelar pedido*."
+            "Puedes cancelar el pedido antes de confirmarlo escribiendo "
+            "*cancelar* o *cancelar pedido*.\n\n"
+            "Si necesitas atención personal, escribe *humano*."
         )
         return finalizar_webhook(message_id, numero)
 
@@ -1527,7 +1692,9 @@ async def whatsapp(request: Request):
             "¡Hola! Bienvenido a Terrace ☕🍰\n\n"
             "Por favor, escribe el número de tu opción:\n\n"
             "1. Ver el menú\n"
-            "2. Hacer un pedido"
+            "2. Hacer un pedido\n\n"
+            "También puedes escribir *humano* en cualquier momento "
+            "si deseas hablar con una persona."
         )
 
         return finalizar_webhook(message_id, numero)
@@ -1724,13 +1891,40 @@ async def whatsapp(request: Request):
 async def enviar_manual(request: Request):
     form = await request.form()
 
-    telefono = form.get("telefono")
-    mensaje = form.get("mensaje")
+    telefono = str(form.get("telefono", "")).strip()
+    mensaje = str(form.get("mensaje", "")).strip()
 
-    if telefono and mensaje:
-        enviar_texto(telefono, mensaje)
+    if not telefono or not mensaje:
+        return JSONResponse(
+            {
+                "success": False,
+                "error": "Faltan el teléfono o el mensaje."
+            },
+            status_code=400
+        )
 
-    return {"success": True}
+    enviado = enviar_texto(telefono, mensaje)
+
+    if not enviado:
+        return JSONResponse(
+            {
+                "success": False,
+                "error": "Meta no pudo enviar el mensaje."
+            },
+            status_code=502
+        )
+
+    activar_atencion_humana(
+        telefono,
+        minutos=30,
+        motivo="Respuesta manual del personal"
+    )
+
+    return {
+        "success": True,
+        "human_mode": True,
+        "minutes": 30
+    }
 
 @app.get("/orders/manual")
 async def mostrar_formulario_pedido_manual(request: Request):
@@ -2048,11 +2242,54 @@ async def clear_messages():
 
     cursor.execute("DELETE FROM messages")
     cursor.execute("DELETE FROM conversation_states")
+    cursor.execute("DELETE FROM human_handoffs")
 
     conn.commit()
     conn.close()
 
-    return {"status": "Chats borrados, contactos guardados"}
+    return {
+        "status": "Chats, conversaciones y controles humanos borrados"
+    }
+
+@app.post("/chat/{telefono}/human/activate")
+async def activar_humano_desde_chat(telefono: str):
+    activar_atencion_humana(
+        telefono,
+        minutos=30,
+        motivo="Activado manualmente desde el panel"
+    )
+
+    return {
+        "success": True,
+        "activo": True,
+        "minutos": 30
+    }
+
+
+@app.post("/chat/{telefono}/human/deactivate")
+async def desactivar_humano_desde_chat(telefono: str):
+    desactivar_atencion_humana(telefono)
+
+    return {
+        "success": True,
+        "activo": False
+    }
+
+
+@app.get("/chat/{telefono}/human/status")
+async def estado_humano_chat(telefono: str):
+    estado = obtener_estado_atencion_humana(telefono)
+
+    activo_hasta = estado.get("activo_hasta")
+
+    if activo_hasta:
+        activo_hasta = activo_hasta.isoformat()
+
+    return {
+        "activo": bool(estado.get("activo")),
+        "activo_hasta": activo_hasta,
+        "motivo": estado.get("motivo", "")
+    }
 
 @app.get("/privacy", response_class=HTMLResponse)
 async def privacy_policy():
@@ -2145,12 +2382,24 @@ async def inbox(request: Request):
 
     cursor.execute("""
         SELECT 
-            telefono,
-            MAX(nombre) AS nombre,
-            MAX(fecha) AS ultima_fecha,
-            COUNT(*) FILTER (WHERE direccion = 'in' AND leido = FALSE) AS no_leidos
-        FROM messages
-        GROUP BY telefono
+            m.telefono,
+            MAX(m.nombre) AS nombre,
+            MAX(m.fecha) AS ultima_fecha,
+            COUNT(*) FILTER (
+                WHERE m.direccion = 'in'
+                AND m.leido = FALSE
+            ) AS no_leidos,
+            COALESCE(
+                BOOL_OR(
+                    h.activo_hasta IS NOT NULL
+                    AND h.activo_hasta > NOW()
+                ),
+                FALSE
+            ) AS atencion_humana
+        FROM messages m
+        LEFT JOIN human_handoffs h
+            ON h.telefono = m.telefono
+        GROUP BY m.telefono
         ORDER BY ultima_fecha DESC
     """)
 
@@ -2158,9 +2407,11 @@ async def inbox(request: Request):
     conn.close()
 
     return templates.TemplateResponse(
-        request,
-        "inbox.html",
-        {"chats": chats}
+        request=request,
+        name="inbox.html",
+        context={
+            "chats": chats
+        }
     )
 
 @app.get("/inbox/chats")
@@ -2170,15 +2421,24 @@ async def inbox_chats():
 
     cursor.execute("""
         SELECT
-            telefono,
-            MAX(nombre) AS nombre,
-            MAX(fecha) AS ultima_fecha,
+            m.telefono,
+            MAX(m.nombre) AS nombre,
+            MAX(m.fecha) AS ultima_fecha,
             COUNT(*) FILTER (
-                WHERE direccion='in'
-                AND leido=FALSE
-            ) AS no_leidos
-        FROM messages
-        GROUP BY telefono
+                WHERE m.direccion = 'in'
+                AND m.leido = FALSE
+            ) AS no_leidos,
+            COALESCE(
+                BOOL_OR(
+                    h.activo_hasta IS NOT NULL
+                    AND h.activo_hasta > NOW()
+                ),
+                FALSE
+            ) AS atencion_humana
+        FROM messages m
+        LEFT JOIN human_handoffs h
+            ON h.telefono = m.telefono
+        GROUP BY m.telefono
         ORDER BY ultima_fecha DESC
     """)
 
@@ -2188,22 +2448,41 @@ async def inbox_chats():
     html = ""
 
     for chat in chats:
+        atencion_humana = bool(chat["atencion_humana"])
+
+        chat_class = "chat chat-human" if atencion_humana else "chat"
+        avatar_class = "avatar avatar-human" if atencion_humana else "avatar"
 
         badge = ""
 
         if chat["no_leidos"] > 0:
+            badge_class = (
+                "badge badge-human"
+                if atencion_humana
+                else "badge"
+            )
+
             badge = f"""
-            <div class="badge">
+            <div class="{badge_class}">
                 {chat["no_leidos"]}
+            </div>
+            """
+
+        human_label = ""
+
+        if atencion_humana:
+            human_label = """
+            <div class="human-label">
+                👤 Atención humana activa
             </div>
             """
 
         inicial = (chat["nombre"] or chat["telefono"])[0].upper()
 
         html += f"""
-        <a class="chat" href="/chat/{chat['telefono']}">
+        <a class="{chat_class}" href="/chat/{chat['telefono']}">
 
-            <div class="avatar">
+            <div class="{avatar_class}">
                 {inicial}
             </div>
 
@@ -2220,6 +2499,8 @@ async def inbox_chats():
                 <div class="fecha">
                     Último mensaje: {chat["ultima_fecha"]}
                 </div>
+
+                {human_label}
 
             </div>
 
@@ -2239,8 +2520,8 @@ async def chat(request: Request, telefono: str):
         UPDATE messages
         SET leido = TRUE
         WHERE telefono = %s
-        AND direccion = 'in'
-        AND leido = FALSE
+          AND direccion = 'in'
+          AND leido = FALSE
     """, (telefono,))
 
     conn.commit()
@@ -2255,12 +2536,17 @@ async def chat(request: Request, telefono: str):
     mensajes = cursor.fetchall()
     conn.close()
 
+    estado_humano = obtener_estado_atencion_humana(telefono)
+
     return templates.TemplateResponse(
-        request,
-        "chat.html",
-        {
+        request=request,
+        name="chat.html",
+        context={
             "telefono": telefono,
-            "mensajes": mensajes
+            "mensajes": mensajes,
+            "human_mode": bool(estado_humano.get("activo")),
+            "human_until": estado_humano.get("activo_hasta"),
+            "human_reason": estado_humano.get("motivo", "")
         }
     )
 

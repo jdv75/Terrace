@@ -126,6 +126,34 @@
             font-weight:700;
             margin-left:15px;
         }
+
+        .badge-human{
+            background:#2563eb;
+        }
+
+        .chat-human{
+            background:#eff6ff;
+            border-left:5px solid #2563eb;
+        }
+
+        .chat-human:hover{
+            background:#dbeafe;
+        }
+
+        .avatar-human{
+            background:#2563eb;
+        }
+
+        .human-label{
+            display:inline-block;
+            margin-top:7px;
+            background:#dbeafe;
+            color:#1d4ed8;
+            padding:4px 9px;
+            border-radius:999px;
+            font-size:12px;
+            font-weight:700;
+        }
     </style>
 </head>
 
@@ -147,9 +175,12 @@
 
         {% for chat in chats %}
 
-        <a class="chat" href="/chat/{{ chat.telefono }}">
+        <a
+            class="chat {% if chat.atencion_humana %}chat-human{% endif %}"
+            href="/chat/{{ chat.telefono }}"
+        >
 
-            <div class="avatar">
+            <div class="avatar {% if chat.atencion_humana %}avatar-human{% endif %}">
                 {{ (chat.nombre or chat.telefono)[0]|upper }}
             </div>
 
@@ -167,12 +198,18 @@
                     Último mensaje: {{ chat.ultima_fecha }}
                 </div>
 
+                {% if chat.atencion_humana %}
+                    <div class="human-label">
+                        👤 Atención humana activa
+                    </div>
+                {% endif %}
+
             </div>
 
             {% if chat.no_leidos > 0 %}
-                    <div class="badge">
-                        {{ chat.no_leidos }}
-                    </div>
+                <div class="badge {% if chat.atencion_humana %}badge-human{% endif %}">
+                    {{ chat.no_leidos }}
+                </div>
             {% endif %}
 
         </a>
