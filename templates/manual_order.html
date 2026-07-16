@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>Terrace | Añadir pedido</title>
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: Segoe UI, Arial, sans-serif;
+        }
+
+        body {
+            background: #f3f5f9;
+            color: #111827;
+        }
+
+        header {
+            background: #111827;
+            color: white;
+            padding: 25px 40px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, .15);
+        }
+
+        header p {
+            margin-top: 5px;
+            color: #cbd5e1;
+        }
+
+        .back-button {
+            background: #374151;
+            color: white;
+            text-decoration: none;
+            padding: 12px 18px;
+            border-radius: 10px;
+        }
+
+        .container {
+            width: 90%;
+            max-width: 900px;
+            margin: 40px auto;
+        }
+
+        .form-card {
+            background: white;
+            padding: 30px;
+            border-radius: 18px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, .08);
+        }
+
+        .form-card h2 {
+            margin-bottom: 25px;
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+        }
+
+        .field {
+            display: flex;
+            flex-direction: column;
+            gap: 7px;
+        }
+
+        .field.full {
+            grid-column: 1 / -1;
+        }
+
+        label {
+            font-weight: 600;
+            color: #374151;
+        }
+
+        input,
+        select,
+        textarea {
+            width: 100%;
+            border: 1px solid #d1d5db;
+            border-radius: 10px;
+            padding: 12px;
+            font-size: 15px;
+            background: white;
+        }
+
+        input:focus,
+        select:focus,
+        textarea:focus {
+            outline: 2px solid #7c3aed;
+            border-color: transparent;
+        }
+
+        textarea {
+            min-height: 90px;
+            resize: vertical;
+        }
+
+        .products-title {
+            margin-top: 30px;
+            margin-bottom: 15px;
+        }
+
+        .product-row {
+            display: grid;
+            grid-template-columns: 2fr 90px 2fr 50px;
+            gap: 10px;
+            margin-bottom: 12px;
+            align-items: center;
+        }
+
+        .add-product {
+            border: none;
+            cursor: pointer;
+            color: white;
+            background: #2563eb;
+            padding: 11px 16px;
+            border-radius: 10px;
+            font-weight: bold;
+            margin-top: 5px;
+        }
+
+        .remove-product {
+            border: none;
+            cursor: pointer;
+            color: white;
+            background: #dc2626;
+            height: 43px;
+            border-radius: 9px;
+            font-size: 18px;
+        }
+
+        .submit-button {
+            width: 100%;
+            border: none;
+            cursor: pointer;
+            color: white;
+            background: #7c3aed;
+            padding: 15px;
+            border-radius: 10px;
+            font-size: 17px;
+            font-weight: bold;
+            margin-top: 30px;
+        }
+
+        .submit-button:hover {
+            background: #6d28d9;
+        }
+
+        .error {
+            background: #fee2e2;
+            border: 1px solid #fca5a5;
+            color: #991b1b;
+            padding: 14px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        @media (max-width: 700px) {
+            header {
+                padding: 20px;
+            }
+
+            .form-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .field.full {
+                grid-column: auto;
+            }
+
+            .product-row {
+                grid-template-columns: 1fr;
+                padding: 15px;
+                border: 1px solid #e5e7eb;
+                border-radius: 12px;
+            }
+
+            .remove-product {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+<header>
+    <div>
+        <h1>🍔 Terrace</h1>
+        <p>Añadir pedido manual</p>
+    </div>
+
+    <a href="/dashboard" class="back-button">
+        ← Volver al dashboard
+    </a>
+</header>
+
+<div class="container">
+
+    <form
+        class="form-card"
+        action="/orders/manual"
+        method="post"
+    >
+        <h2>Información del pedido</h2>
+
+        {% if error %}
+            <div class="error">
+                {{ error }}
+            </div>
+        {% endif %}
+
+        <div class="form-grid">
+
+            <div class="field">
+                <label for="nombre">Nombre del cliente *</label>
+
+                <input
+                    type="text"
+                    id="nombre"
+                    name="nombre"
+                    value="{{ form_data.nombre if form_data else '' }}"
+                    required
+                >
+            </div>
+
+            <div class="field">
+                <label for="telefono">Teléfono</label>
+
+                <input
+                    type="text"
+                    id="telefono"
+                    name="telefono"
+                    value="{{ form_data.telefono if form_data else '' }}"
+                    placeholder="Opcional"
+                >
+            </div>
+
+            <div class="field">
+                <label for="tipo_entrega">Tipo de entrega *</label>
+
+                <select
+                    id="tipo_entrega"
+                    name="tipo_entrega"
+                    onchange="actualizarDireccion()"
+                    required
+                >
+                    <option value="">Seleccionar</option>
+
+                    <option
+                        value="domicilio"
+                        {% if form_data and form_data.tipo_entrega == "domicilio" %}
+                            selected
+                        {% endif %}
+                    >
+                        Llevar a un local
+                    </option>
+
+                    <option
+                        value="recoger"
+                        {% if form_data and form_data.tipo_entrega == "recoger" %}
+                            selected
+                        {% endif %}
+                    >
+                        Recoger en Terrace
+                    </option>
+                </select>
+            </div>
+
+            <div class="field" id="direccion-container">
+                <label for="direccion">Local o dirección</label>
+
+                <input
+                    type="text"
+                    id="direccion"
+                    name="direccion"
+                    value="{{ form_data.direccion if form_data else '' }}"
+                    placeholder="Ejemplo: Local P40"
+                >
+            </div>
+
+            <div class="field">
+                <label for="metodo_pago">Método de pago *</label>
+
+                <select
+                    id="metodo_pago"
+                    name="metodo_pago"
+                    required
+                >
+                    <option value="">Seleccionar</option>
+
+                    <option
+                        value="efectivo"
+                        {% if form_data and form_data.metodo_pago == "efectivo" %}
+                            selected
+                        {% endif %}
+                    >
+                        Efectivo
+                    </option>
+
+                    <option
+                        value="transferencia"
+                        {% if form_data and form_data.metodo_pago == "transferencia" %}
+                            selected
+                        {% endif %}
+                    >
+                        Transferencia
+                    </option>
+                </select>
+            </div>
+
+            <div class="field">
+                <label for="hora">Hora solicitada</label>
+
+                <input
+                    type="time"
+                    id="hora"
+                    name="hora"
+                    value="{{ form_data.hora if form_data else '' }}"
+                >
+            </div>
+
+            <div class="field full">
+                <label for="notas">Notas generales</label>
+
+                <textarea
+                    id="notas"
+                    name="notas"
+                    placeholder="Información adicional del pedido"
+                >{{ form_data.notas if form_data else '' }}</textarea>
+            </div>
+
+        </div>
+
+        <h3 class="products-title">Productos</h3>
+
+        <div id="products-container">
+
+            <div class="product-row">
+
+                <select name="producto" required>
+                    <option value="">Seleccionar producto</option>
+
+                    {% for item in menu %}
+                        <option value="{{ item['producto'] }}">
+                            {{ item["producto"] }} —
+                            ${{ "{:,.0f}".format(item["precio"]) }}
+                        </option>
+                    {% endfor %}
+                </select>
+
+                <input
+                    type="number"
+                    name="cantidad"
+                    value="1"
+                    min="1"
+                    required
+                >
+
+                <input
+                    type="text"
+                    name="notas_producto"
+                    placeholder="Notas: sin azúcar, deslactosada..."
+                >
+
+                <button
+                    type="button"
+                    class="remove-product"
+                    onclick="eliminarProducto(this)"
+                    title="Eliminar producto"
+                >
+                    ×
+                </button>
+
+            </div>
+
+        </div>
+
+        <button
+            type="button"
+            class="add-product"
+            onclick="agregarProducto()"
+        >
+            ＋ Agregar otro producto
+        </button>
+
+        <button type="submit" class="submit-button">
+            ✅ Crear pedido
+        </button>
+
+    </form>
+
+</div>
+
+<script>
+    function agregarProducto() {
+        const container = document.getElementById(
+            "products-container"
+        );
+
+        const primeraFila = container.querySelector(
+            ".product-row"
+        );
+
+        const nuevaFila = primeraFila.cloneNode(true);
+
+        nuevaFila.querySelector(
+            'select[name="producto"]'
+        ).value = "";
+
+        nuevaFila.querySelector(
+            'input[name="cantidad"]'
+        ).value = "1";
+
+        nuevaFila.querySelector(
+            'input[name="notas_producto"]'
+        ).value = "";
+
+        container.appendChild(nuevaFila);
+    }
+
+    function eliminarProducto(button) {
+        const container = document.getElementById(
+            "products-container"
+        );
+
+        const filas = container.querySelectorAll(
+            ".product-row"
+        );
+
+        if (filas.length === 1) {
+            filas[0].querySelector(
+                'select[name="producto"]'
+            ).value = "";
+
+            filas[0].querySelector(
+                'input[name="cantidad"]'
+            ).value = "1";
+
+            filas[0].querySelector(
+                'input[name="notas_producto"]'
+            ).value = "";
+
+            return;
+        }
+
+        button.closest(".product-row").remove();
+    }
+
+    function actualizarDireccion() {
+        const tipoEntrega = document.getElementById(
+            "tipo_entrega"
+        ).value;
+
+        const container = document.getElementById(
+            "direccion-container"
+        );
+
+        const input = document.getElementById(
+            "direccion"
+        );
+
+        if (tipoEntrega === "recoger") {
+            container.classList.add("hidden");
+            input.required = false;
+            input.value = "";
+        } else {
+            container.classList.remove("hidden");
+            input.required = tipoEntrega === "domicilio";
+        }
+    }
+
+    actualizarDireccion();
+</script>
+
+</body>
+</html>

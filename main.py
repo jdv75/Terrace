@@ -1732,6 +1732,130 @@ async def enviar_manual(request: Request):
 
     return {"success": True}
 
+@app.get("/orders/manual")
+async def mostrar_formulario_pedido_manual(request: Request):
+    return templates.TemplateResponse(
+        request=request,
+        name="manual_order.html",
+        context={
+            "menu": MENU,
+            "error": None
+        }
+    )
+
+
+@app.post("/orders/manual")
+async def crear_pedido_manual(request: Request):
+    form = await request.form()
+
+    nombre = str(form.get("nombre", "")).strip()
+    telefono = str(form.get("telefono", "")).strip()
+    tipo_entrega = str(form.get("tipo_entrega", "")).strip().lower()
+    direccion = str(form.get("direccion", "")).strip()
+    hora = str(form.get("hora", "")).strip()
+    metodo_pago = str(form.get("metodo_pago", "")).strip().lower()
+    notas = str(form.get("notas", "")).strip()
+
+    productos = form.getlist("producto")
+    cantidades = form.getlist("cantidad")
+    notas_productos = form.getlist("notas_producto")
+
+    errores = []
+
+    if not nombre:
+        errores.append("Debes ingresar el nombre del cliente.")
+
+    if tipo_entrega not in {"domicilio", "recoger"}:
+        errores.append("Debes seleccionar el tipo de entrega.")
+
+    if tipo_entrega == "domicilio" and not direccion:
+        errores.append(
+            "Debes ingresar el local o dirección para el domicilio."
+        )
+
+    if metodo_pago not in {"efectivo", "transferencia"}:
+        errores.append("Debes seleccionar un método de pago.")
+
+    items = []
+
+    for indice, nombre_producto in enumerate(productos):
+        nombre_producto = str(nombre_producto).strip()
+
+        if not nombre_producto:
+            continue
+
+        producto_menu = buscar_producto(nombre_producto)
+
+        if not producto_menu:
+            errores.append(
+                f"El producto '{nombre_producto}' no se encuentra en el menú."
+            )
+            continue
+
+        try:
+            cantidad = int(cantidades[indice])
+        except (ValueError, TypeError, IndexError):
+            cantidad = 1
+
+        if cantidad < 1:
+            errores.append(
+                f"La cantidad de {producto_menu['producto']} debe ser mayor que cero."
+            )
+            continue
+
+        nota_producto = ""
+
+        if indice < len(notas_productos):
+            nota_producto = str(notas_productos[indice]).strip()
+
+        items.append({
+            "producto": producto_menu["producto"],
+            "cantidad": str(cantidad),
+            "notas": nota_producto
+        })
+
+    if not items:
+        errores.append("Debes agregar al menos un producto.")
+
+    if errores:
+        return templates.TemplateResponse(
+            request=request,
+            name="manual_order.html",
+            context={
+                "menu": MENU,
+                "error": " ".join(errores),
+                "form_data": {
+                    "nombre": nombre,
+                    "telefono": telefono,
+                    "tipo_entrega": tipo_entrega,
+                    "direccion": direccion,
+                    "hora": hora,
+                    "metodo_pago": metodo_pago,
+                    "notas": notas
+                }
+            },
+            status_code=400
+        )
+
+    pedido = {
+        "nombre": nombre,
+        "items": items,
+        "tipo_entrega": tipo_entrega,
+        "direccion": direccion if tipo_entrega == "domicilio" else "",
+        "hora": hora,
+        "metodo_pago": metodo_pago,
+        "notas": notas
+    }
+
+    numero_pedido = telefono if telefono else "PEDIDO MANUAL"
+
+    guardar_pedido_db(numero_pedido, pedido)
+
+    return RedirectResponse(
+        url="/dashboard",
+        status_code=303
+    )
+
 @app.get("/dashboard")
 async def dashboard(request: Request):
     conn = get_connection()
