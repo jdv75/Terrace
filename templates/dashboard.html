@@ -177,9 +177,8 @@ button:hover{
 }
 
 .excel-btn{
-
     display:inline-block;
-    margin-top:10px;
+    margin-top:0;
     background:#16a34a;
     color:white;
     text-decoration:none;
@@ -188,7 +187,6 @@ button:hover{
     font-size:15px;
     font-weight:bold;
     transition:.2s;
-
 }
 
 .excel-btn:hover{
@@ -196,17 +194,6 @@ button:hover{
     transform:scale(1.05);
     background:#15803d;
 
-}
-
-.excel-btn{
-    display:inline-block;
-    background:#16a34a;
-    color:white;
-    text-decoration:none;
-    padding:12px 18px;
-    border-radius:10px;
-    font-size:15px;
-    font-weight:bold;
 }
 
 .excel-small-btn{
@@ -220,6 +207,20 @@ input[type="date"]{
     padding:9px;
     border-radius:8px;
     border:none;
+}
+
+.header-buttons{
+    display:flex;
+    justify-content:flex-end;
+    align-items:center;
+    gap:10px;
+    flex-wrap:wrap;
+}
+
+.date-form{
+    display:flex;
+    align-items:center;
+    gap:8px;
 }
 
 </style>
@@ -242,28 +243,29 @@ input[type="date"]{
 
 <br>
 
-<a href="/inbox" class="excel-btn" style="background:#2563eb;">
-💬 Ver chats
-</a>
+<div class="header-buttons">
 
-<br>
+    <a href="/inbox" class="excel-btn" style="background:#2563eb;">
+        💬 Ver chats
+    </a>
 
-<a href="/orders/manual" class="excel-btn" style="background:#7c3aed;">
-➕ Añadir pedido
-</a>
+    <a href="/orders/manual" class="excel-btn" style="background:#7c3aed;">
+        ➕ Añadir pedido
+    </a>
 
-<br>
+    <a href="/export/excel" class="excel-btn">
+        📥 Descargar todo
+    </a>
 
-<a href="/export/excel" class="excel-btn">
-📥 Descargar todo
-</a>
+    <form action="/export/excel" method="get" class="date-form">
+        <input type="date" name="fecha" required>
 
-<form action="/export/excel" method="get" style="margin-top:10px;">
-    <input type="date" name="fecha" required>
-    <button type="submit" class="excel-small-btn">
-        📅 Descargar día
-    </button>
-</form>
+        <button type="submit" class="excel-small-btn">
+            📅 Descargar día
+        </button>
+    </form>
+
+</div>
 
 </div>
 
