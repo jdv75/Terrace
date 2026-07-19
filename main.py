@@ -2310,6 +2310,26 @@ async def cancelar_pedido(order_id: int):
         status_code=303
     )
 
+@app.post("/menu/admin/{producto_id}/delete")
+def eliminar_producto(producto_id: int):
+    conn = get_connection()
+    cur = conn.cursor()
+
+    cur.execute(
+        "DELETE FROM products WHERE id = %s",
+        (producto_id,)
+    )
+
+    conn.commit()
+
+    cur.close()
+    conn.close()
+
+    return RedirectResponse(
+        url="/menu/admin",
+        status_code=303
+    )
+
 @app.get("/export/excel")
 async def export_excel(fecha: str = None):
     conn = get_connection()
