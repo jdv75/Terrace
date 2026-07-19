@@ -33,8 +33,8 @@ ZONA_HORARIA = ZoneInfo("America/Bogota")
 def hora_local():
     return datetime.now(ZONA_HORARIA).strftime("%Y-%m-%d %H:%M:%S")
 
-with open("menu.json", "r", encoding="utf-8") as file:
-    MENU = json.load(file)
+# with open("menu.json", "r", encoding="utf-8") as file:
+#     MENU = json.load(file)
 
 app = FastAPI()
 app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -160,10 +160,73 @@ def crear_tabla():
         )
     """)
 
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS products (
+            id SERIAL PRIMARY KEY,
+            producto TEXT UNIQUE NOT NULL,
+            precio INTEGER NOT NULL CHECK (precio >= 0),
+            activo BOOLEAN NOT NULL DEFAULT TRUE,
+            creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            actualizado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+
     conn.commit()
     conn.close()
 
+def importar_menu_inicial():
+    """
+    Importa los productos de menu.json solamente si todavía
+    no existen en la tabla products.
+    """
+
+    ruta_menu = "menu.json"
+
+    if not os.path.exists(ruta_menu):
+        print("No se encontró menu.json para la importación inicial.")
+        return
+
+    try:
+        with open(ruta_menu, "r", encoding="utf-8") as file:
+            productos_json = json.load(file)
+    except (OSError, json.JSONDecodeError) as error:
+        print("ERROR LEYENDO menu.json:", error)
+        return
+
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    for item in productos_json:
+        producto = str(item.get("producto", "")).strip()
+
+        try:
+            precio = int(item.get("precio", 0))
+        except (TypeError, ValueError):
+            continue
+
+        if not producto or precio < 0:
+            continue
+
+        cursor.execute("""
+            INSERT INTO products (
+                producto,
+                precio,
+                activo
+            )
+            VALUES (%s, %s, TRUE)
+            ON CONFLICT (producto) DO NOTHING
+        """, (
+            producto,
+            precio
+        ))
+
+    conn.commit()
+    conn.close()
+
+    print("Menú inicial importado correctamente.")
+
 crear_tabla()
+importar_menu_inicial()
 
 def obtener_conversacion(numero):
     conn = get_connection()
@@ -456,25 +519,24 @@ templates = Jinja2Templates(directory="templates")
 
 def calcular_total(pedido):
     total = 0
+    menu_activo = obtener_menu(solo_activos=True)
 
     for item in pedido.get("items", []):
-        producto = item.get("producto", "").lower()
+        producto = item.get("producto", "")
+
         try:
             cantidad = int(item.get("cantidad", 1))
-        except:
+        except (TypeError, ValueError):
             cantidad = 1
 
         producto_encontrado = None
 
-        for producto_menu in MENU:
+        for producto_menu in menu_activo:
             if normalizar(producto_menu["producto"]) == normalizar(producto):
                 producto_encontrado = producto_menu
                 break
 
-        if producto_encontrado:
-            precio = producto_encontrado["precio"]
-        else:
-            precio = 0
+        precio = producto_encontrado["precio"] if producto_encontrado else 0
 
         extra = 0
         notas_item = item.get("notas", "").lower()
@@ -487,14 +549,20 @@ def calcular_total(pedido):
     return total
 
 def buscar_producto(nombre_producto):
+    menu_activo = obtener_menu(solo_activos=True)
     nombre_producto = normalizar(nombre_producto)
 
-    # match exacto primero
-    for item in MENU:
+    for item in menu_activo:
         if normalizar(item["producto"]) == nombre_producto:
             return item
 
-    nombres_normalizados = [normalizar(item["producto"]) for item in MENU]
+    nombres_normalizados = [
+        normalizar(item["producto"])
+        for item in menu_activo
+    ]
+
+    if not nombres_normalizados:
+        return None
 
     resultado = process.extractOne(
         nombre_producto,
@@ -505,14 +573,16 @@ def buscar_producto(nombre_producto):
     if resultado is None:
         return None
 
-    nombre_encontrado, score, index = resultado
+    _, score, index = resultado
 
     if score >= 75:
-        return MENU[index]
+        return menu_activo[index]
 
     return None
 
 def validar_items_pedido(pedido):
+    menu_activo = obtener_menu(solo_activos=True)
+
     items_validos = []
     productos_invalidos = []
 
@@ -521,7 +591,7 @@ def validar_items_pedido(pedido):
 
         producto_encontrado = None
 
-        for producto_menu in MENU:
+        for producto_menu in menu_activo:
             if normalizar(producto_menu["producto"]) == normalizar(nombre_producto):
                 producto_encontrado = producto_menu
                 break
@@ -551,14 +621,16 @@ def validar_items_pedido(pedido):
     return pedido
 
 def opciones_por_producto(producto_ambiguo):
+    menu_activo = obtener_menu(solo_activos=True)
     producto_ambiguo = normalizar(producto_ambiguo)
 
     opciones = []
-    for item in MENU:
-        nombre = item["producto"]
-        nombre_norm = normalizar(nombre)
 
-        if producto_ambiguo in nombre_norm:
+    for item in menu_activo:
+        nombre = item["producto"]
+        nombre_normalizado = normalizar(nombre)
+
+        if producto_ambiguo in nombre_normalizado:
             opciones.append(nombre)
 
     return opciones
@@ -642,6 +714,45 @@ def enviar_texto(numero, texto):
     except requests.RequestException as error:
         print("ERROR ENVIANDO TEXTO:", str(error))
         return False
+    
+def obtener_menu(solo_activos=True):
+    conn = get_connection()
+    cursor = conn.cursor(cursor_factory=RealDictCursor)
+
+    if solo_activos:
+        cursor.execute("""
+            SELECT id, producto, precio, activo
+            FROM products
+            WHERE activo = TRUE
+            ORDER BY producto ASC
+        """)
+    else:
+        cursor.execute("""
+            SELECT id, producto, precio, activo
+            FROM products
+            ORDER BY producto ASC
+        """)
+
+    productos = cursor.fetchall()
+    conn.close()
+
+    return [dict(producto) for producto in productos]
+
+
+def obtener_producto_por_id(product_id):
+    conn = get_connection()
+    cursor = conn.cursor(cursor_factory=RealDictCursor)
+
+    cursor.execute("""
+        SELECT id, producto, precio, activo
+        FROM products
+        WHERE id = %s
+    """, (product_id,))
+
+    producto = cursor.fetchone()
+    conn.close()
+
+    return dict(producto) if producto else None
 
 def enviar_menu(numero, link=None):
     ruta_imagen = os.path.join("static", "menu.jpeg")
@@ -1182,6 +1293,8 @@ async def whatsapp(request: Request):
             f"mensaje={mensaje}"
         )
 
+        menu_activo = obtener_menu(solo_activos=True)
+
         completion = client.chat.completions.create(
             model="gpt-4.1-mini",
         messages=[
@@ -1199,7 +1312,7 @@ async def whatsapp(request: Request):
 
     MENÚ DISPONIBLE:
 
-    {json.dumps(MENU, ensure_ascii=False)}
+    {json.dumps(menu_activo, ensure_ascii=False)}
 
     ESTRUCTURA DE SALIDA:
 
@@ -1837,11 +1950,13 @@ async def enviar_manual(request: Request):
 
 @app.get("/orders/manual")
 async def mostrar_formulario_pedido_manual(request: Request):
+    menu_activo = obtener_menu(solo_activos=True)
+
     return templates.TemplateResponse(
         request=request,
         name="manual_order.html",
         context={
-            "menu": MENU,
+            "menu": menu_activo,
             "error": None
         }
     )
@@ -1922,7 +2037,7 @@ async def crear_pedido_manual(request: Request):
             request=request,
             name="manual_order.html",
             context={
-                "menu": MENU,
+                "menu": obtener_menu(solo_activos=True),
                 "error": " ".join(errores),
                 "form_data": {
                     "nombre": nombre,
@@ -1952,6 +2067,166 @@ async def crear_pedido_manual(request: Request):
 
     return RedirectResponse(
         url="/dashboard",
+        status_code=303
+    )
+
+@app.get("/menu/admin")
+async def administrar_menu(request: Request):
+    productos = obtener_menu(solo_activos=False)
+
+    return templates.TemplateResponse(
+        request=request,
+        name="admin_menu.html",
+        context={
+            "productos": productos,
+            "error": None
+        }
+    )
+
+
+@app.post("/menu/admin/add")
+async def agregar_producto(request: Request):
+    form = await request.form()
+
+    producto = str(form.get("producto", "")).strip()
+    precio_texto = str(form.get("precio", "")).strip()
+
+    if not producto:
+        raise HTTPException(
+            status_code=400,
+            detail="El nombre del producto es obligatorio."
+        )
+
+    try:
+        precio = int(precio_texto)
+    except ValueError:
+        raise HTTPException(
+            status_code=400,
+            detail="El precio debe ser un número entero."
+        )
+
+    if precio < 0:
+        raise HTTPException(
+            status_code=400,
+            detail="El precio no puede ser negativo."
+        )
+
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    try:
+        cursor.execute("""
+            INSERT INTO products (
+                producto,
+                precio,
+                activo
+            )
+            VALUES (%s, %s, TRUE)
+        """, (
+            producto,
+            precio
+        ))
+
+        conn.commit()
+
+    except psycopg2.IntegrityError:
+        conn.rollback()
+        conn.close()
+
+        raise HTTPException(
+            status_code=409,
+            detail="Ya existe un producto con ese nombre."
+        )
+
+    conn.close()
+
+    return RedirectResponse(
+        url="/menu/admin",
+        status_code=303
+    )
+
+
+@app.post("/menu/admin/{product_id}/edit")
+async def editar_producto(product_id: int, request: Request):
+    form = await request.form()
+
+    producto = str(form.get("producto", "")).strip()
+    precio_texto = str(form.get("precio", "")).strip()
+
+    if not producto:
+        raise HTTPException(
+            status_code=400,
+            detail="El nombre del producto es obligatorio."
+        )
+
+    try:
+        precio = int(precio_texto)
+    except ValueError:
+        raise HTTPException(
+            status_code=400,
+            detail="El precio debe ser un número entero."
+        )
+
+    if precio < 0:
+        raise HTTPException(
+            status_code=400,
+            detail="El precio no puede ser negativo."
+        )
+
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    try:
+        cursor.execute("""
+            UPDATE products
+            SET
+                producto = %s,
+                precio = %s,
+                actualizado_en = CURRENT_TIMESTAMP
+            WHERE id = %s
+        """, (
+            producto,
+            precio,
+            product_id
+        ))
+
+        conn.commit()
+
+    except psycopg2.IntegrityError:
+        conn.rollback()
+        conn.close()
+
+        raise HTTPException(
+            status_code=409,
+            detail="Ya existe otro producto con ese nombre."
+        )
+
+    conn.close()
+
+    return RedirectResponse(
+        url="/menu/admin",
+        status_code=303
+    )
+
+
+@app.post("/menu/admin/{product_id}/toggle")
+async def cambiar_disponibilidad_producto(product_id: int):
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        UPDATE products
+        SET
+            activo = NOT activo,
+            actualizado_en = CURRENT_TIMESTAMP
+        WHERE id = %s
+    """, (product_id,))
+
+    conn.commit()
+    conn.close()
+
+    return RedirectResponse(
+        url="/menu/admin",
         status_code=303
     )
 

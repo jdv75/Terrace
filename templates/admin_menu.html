@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>Terrace | Administrar menú</title>
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: "Segoe UI", Arial, sans-serif;
+        }
+
+        body {
+            background: #f3f5f9;
+            color: #111827;
+        }
+
+        header {
+            background: #111827;
+            color: white;
+            padding: 24px 40px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 20px;
+            flex-wrap: wrap;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, .15);
+        }
+
+        header h1 {
+            font-size: 27px;
+        }
+
+        header p {
+            color: #cbd5e1;
+            margin-top: 5px;
+        }
+
+        .back-button {
+            display: inline-block;
+            background: #2563eb;
+            color: white;
+            text-decoration: none;
+            padding: 11px 17px;
+            border-radius: 10px;
+            font-weight: 600;
+        }
+
+        .container {
+            width: 92%;
+            max-width: 1250px;
+            margin: 35px auto;
+        }
+
+        .add-section,
+        .menu-section {
+            background: white;
+            border-radius: 18px;
+            padding: 25px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, .08);
+            margin-bottom: 28px;
+        }
+
+        .section-title {
+            margin-bottom: 18px;
+        }
+
+        .add-form {
+            display: grid;
+            grid-template-columns: minmax(220px, 1fr) 180px auto;
+            gap: 12px;
+        }
+
+        input {
+            width: 100%;
+            border: 1px solid #d1d5db;
+            border-radius: 9px;
+            padding: 11px 12px;
+            font-size: 15px;
+        }
+
+        input:focus {
+            outline: 2px solid #93c5fd;
+            border-color: #2563eb;
+        }
+
+        button {
+            border: none;
+            border-radius: 9px;
+            padding: 11px 15px;
+            color: white;
+            cursor: pointer;
+            font-weight: 600;
+            transition: .2s;
+        }
+
+        button:hover {
+            transform: translateY(-1px);
+            opacity: .92;
+        }
+
+        .add-button {
+            background: #16a34a;
+        }
+
+        .edit-button {
+            background: #2563eb;
+        }
+
+        .disable-button {
+            background: #dc2626;
+        }
+
+        .enable-button {
+            background: #16a34a;
+        }
+
+        .product-list {
+            display: flex;
+            flex-direction: column;
+            gap: 13px;
+        }
+
+        .product-card {
+            display: grid;
+            grid-template-columns: minmax(220px, 1fr) 150px auto;
+            align-items: center;
+            gap: 12px;
+            border: 1px solid #e5e7eb;
+            border-radius: 13px;
+            padding: 14px;
+        }
+
+        .product-card.inactive {
+            background: #f9fafb;
+            opacity: .7;
+        }
+
+        .product-info {
+            min-width: 0;
+        }
+
+        .product-name {
+            font-size: 17px;
+            font-weight: 700;
+            overflow-wrap: anywhere;
+        }
+
+        .product-price {
+            color: #4b5563;
+            margin-top: 4px;
+        }
+
+        .status {
+            display: inline-block;
+            margin-top: 7px;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 700;
+        }
+
+        .status-active {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .status-inactive {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .edit-form {
+            display: contents;
+        }
+
+        .actions {
+            display: flex;
+            gap: 8px;
+            justify-content: flex-end;
+            flex-wrap: wrap;
+        }
+
+        .empty {
+            text-align: center;
+            color: #6b7280;
+            padding: 30px;
+        }
+
+        @media (max-width: 800px) {
+            header {
+                padding: 20px;
+            }
+
+            .add-form {
+                grid-template-columns: 1fr;
+            }
+
+            .product-card {
+                grid-template-columns: 1fr;
+            }
+
+            .edit-form {
+                display: flex;
+                flex-direction: column;
+                gap: 10px;
+            }
+
+            .actions {
+                justify-content: flex-start;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+<header>
+    <div>
+        <h1>☕ Administrar menú</h1>
+        <p>Agrega, edita y controla la disponibilidad de productos.</p>
+    </div>
+
+    <a href="/dashboard" class="back-button">
+        ← Volver al dashboard
+    </a>
+</header>
+
+<main class="container">
+
+    <section class="add-section">
+        <h2 class="section-title">Agregar producto</h2>
+
+        <form
+            action="/menu/admin/add"
+            method="post"
+            class="add-form"
+        >
+            <input
+                type="text"
+                name="producto"
+                placeholder="Nombre del producto"
+                required
+            >
+
+            <input
+                type="number"
+                name="precio"
+                placeholder="Precio"
+                min="0"
+                step="1"
+                required
+            >
+
+            <button type="submit" class="add-button">
+                ➕ Agregar
+            </button>
+        </form>
+    </section>
+
+    <section class="menu-section">
+        <h2 class="section-title">
+            Productos del menú
+        </h2>
+
+        <div class="product-list">
+
+            {% for item in productos %}
+
+            <article class="product-card {% if not item['activo'] %}inactive{% endif %}">
+
+                <div class="product-info">
+                    <div class="product-name">
+                        {{ item["producto"] }}
+                    </div>
+
+                    <div class="product-price">
+                        ${{ "{:,}".format(item["precio"]) }} COP
+                    </div>
+
+                    {% if item["activo"] %}
+                        <span class="status status-active">
+                            Disponible
+                        </span>
+                    {% else %}
+                        <span class="status status-inactive">
+                            No disponible
+                        </span>
+                    {% endif %}
+                </div>
+
+                <div>
+                    <form
+                        action="/menu/admin/{{ item['id'] }}/edit"
+                        method="post"
+                    >
+                        <input
+                            type="text"
+                            name="producto"
+                            value="{{ item['producto'] }}"
+                            required
+                        >
+
+                        <input
+                            type="number"
+                            name="precio"
+                            value="{{ item['precio'] }}"
+                            min="0"
+                            required
+                            style="margin-top:8px;"
+                        >
+
+                        <button
+                            type="submit"
+                            class="edit-button"
+                            style="margin-top:8px;"
+                        >
+                            💾 Guardar cambios
+                        </button>
+                    </form>
+                </div>
+
+                <div class="actions">
+                    <form
+                        action="/menu/admin/{{ item['id'] }}/toggle"
+                        method="post"
+                    >
+                        {% if item["activo"] %}
+                            <button
+                                type="submit"
+                                class="disable-button"
+                                onclick="return confirm(
+                                    '¿Marcar este producto como no disponible?'
+                                );"
+                            >
+                                ⛔ Desactivar
+                            </button>
+                        {% else %}
+                            <button
+                                type="submit"
+                                class="enable-button"
+                            >
+                                ✅ Activar
+                            </button>
+                        {% endif %}
+                    </form>
+                </div>
+
+            </article>
+
+            {% else %}
+
+            <div class="empty">
+                No hay productos registrados.
+            </div>
+
+            {% endfor %}
+
+        </div>
+    </section>
+
+</main>
+
+</body>
+</html>
