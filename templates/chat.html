@@ -1,172 +1,679 @@
+```html
 <!DOCTYPE html>
-<html>
+<html lang="es">
+
 <head>
-    <title>Chat WhatsApp</title>
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>Terrace | Chat WhatsApp</title>
 
     <style>
-        * {
-            box-sizing: border-box;
-            font-family: "Segoe UI", Arial, sans-serif;
+
+        :root{
+            --background:#f6f3ee;
+            --surface:#ffffff;
+            --surface-soft:#faf8f5;
+
+            --primary:#3f2d24;
+            --primary-soft:#6f4e37;
+            --accent:#d97706;
+            --accent-dark:#b45309;
+
+            --text:#1f2937;
+            --text-soft:#6b7280;
+            --border:#e7e2dc;
+
+            --green:#16a34a;
+            --green-dark:#15803d;
+            --green-soft:#ecfdf5;
+
+            --blue:#2563eb;
+            --blue-dark:#1d4ed8;
         }
 
-        body {
-            margin: 0;
-            background: #f3f4f6;
-            color: #111827;
+        *{
+            margin:0;
+            padding:0;
+            box-sizing:border-box;
+            font-family:"Segoe UI",Arial,sans-serif;
         }
 
-        .header {
-            background: #111827;
-            color: white;
-            padding: 22px 35px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            box-shadow: 0 4px 14px rgba(0,0,0,.18);
+        body{
+            min-height:100vh;
+            color:var(--text);
+            background:
+                radial-gradient(
+                    circle at top left,
+                    rgba(217,119,6,.08),
+                    transparent 30%
+                ),
+                var(--background);
         }
 
-        .header h1 {
-            margin: 0;
-            font-size: 24px;
+        /* HEADER */
+
+        .header{
+            display:flex;
+            justify-content:space-between;
+            align-items:center;
+            gap:25px;
+            padding:25px 5%;
+            color:white;
+            background:
+                linear-gradient(
+                    135deg,
+                    #2d211b 0%,
+                    #4a3429 55%,
+                    #614331 100%
+                );
+            border-bottom:4px solid rgba(217,119,6,.75);
+            box-shadow:0 12px 35px rgba(63,45,36,.22);
         }
 
-        .nav a {
-            color: #d1d5db;
-            text-decoration: none;
-            margin-left: 18px;
-            font-weight: 500;
+        .chat-heading{
+            display:flex;
+            align-items:center;
+            gap:14px;
+            min-width:0;
         }
 
-        .nav a:hover {
-            color: white;
+        .chat-icon{
+            width:52px;
+            height:52px;
+            display:flex;
+            justify-content:center;
+            align-items:center;
+            flex-shrink:0;
+            background:rgba(255,255,255,.12);
+            border:1px solid rgba(255,255,255,.15);
+            border-radius:15px;
+            font-size:25px;
+            box-shadow:inset 0 1px 0 rgba(255,255,255,.15);
         }
 
-        .chat-container {
-            width: 90%;
-            max-width: 900px;
-            margin: 35px auto;
-            background: white;
-            border-radius: 18px;
-            box-shadow: 0 10px 28px rgba(0,0,0,.08);
-            overflow: hidden;
+        .header h1{
+            max-width:600px;
+            font-size:25px;
+            line-height:1.2;
+            letter-spacing:-.4px;
+            overflow-wrap:anywhere;
         }
 
-        #messages {
-            padding: 25px;
-            height: 560px;
-            overflow-y: auto;
-            background: #f9fafb;
+        .header-subtitle{
+            margin-top:5px;
+            color:#e7ded7;
+            font-size:13px;
         }
 
-        .message {
-            margin: 12px 0;
-            padding: 13px 15px;
-            border-radius: 16px;
-            max-width: 70%;
-            line-height: 1.4;
-            box-shadow: 0 3px 8px rgba(0,0,0,.06);
+        .nav{
+            display:flex;
+            align-items:center;
+            justify-content:flex-end;
+            gap:10px;
+            flex-wrap:wrap;
         }
 
-        .message p {
-            margin: 0 0 6px;
-            font-size: 15px;
+        .nav a{
+            min-height:42px;
+            display:inline-flex;
+            justify-content:center;
+            align-items:center;
+            gap:6px;
+            padding:10px 16px;
+            color:white;
+            border-radius:10px;
+            font-size:14px;
+            font-weight:650;
+            text-decoration:none;
+            white-space:nowrap;
+            box-shadow:0 5px 14px rgba(0,0,0,.12);
+            transition:
+                transform .2s ease,
+                background .2s ease,
+                box-shadow .2s ease;
         }
 
-        .message small {
-            display: block;
-            font-size: 11px;
-            color: #6b7280;
-            text-align: right;
+        .dashboard-link{
+            background:var(--green);
         }
 
-        .out {
-            background: #dcfce7;
-            margin-left: auto;
-            border-bottom-right-radius: 4px;
+        .dashboard-link:hover{
+            background:var(--green-dark);
         }
 
-        .in {
-            background: #e5e7eb;
-            margin-right: auto;
-            border-bottom-left-radius: 4px;
+        .inbox-link{
+            background:var(--blue);
         }
 
-        .form-box {
-            padding: 20px;
-            background: white;
-            border-top: 1px solid #e5e7eb;
+        .inbox-link:hover{
+            background:var(--blue-dark);
         }
 
-        textarea {
-            width: 100%;
-            height: 95px;
-            resize: none;
-            border: 1px solid #d1d5db;
-            border-radius: 14px;
-            padding: 14px;
-            font-size: 15px;
-            outline: none;
+        .nav a:hover{
+            transform:translateY(-2px);
+            box-shadow:0 8px 18px rgba(0,0,0,.18);
         }
 
-        textarea:focus {
-            border-color: #22c55e;
-            box-shadow: 0 0 0 3px rgba(34,197,94,.15);
+        .nav a:active{
+            transform:translateY(0);
         }
 
-        button {
-            margin-top: 12px;
-            width: 100%;
-            background: #16a34a;
-            color: white;
-            border: none;
-            padding: 14px;
-            border-radius: 14px;
-            font-size: 16px;
-            font-weight: 700;
-            cursor: pointer;
+        /* MAIN CHAT */
+
+        .page-container{
+            width:92%;
+            max-width:950px;
+            margin:35px auto 60px;
         }
 
-        button:hover {
-            background: #15803d;
+        .chat-status{
+            display:flex;
+            justify-content:space-between;
+            align-items:center;
+            gap:15px;
+            margin-bottom:17px;
         }
+
+        .status-text h2{
+            color:var(--primary);
+            font-size:22px;
+            letter-spacing:-.3px;
+        }
+
+        .status-text p{
+            margin-top:4px;
+            color:var(--text-soft);
+            font-size:13px;
+        }
+
+        .online-status{
+            display:inline-flex;
+            align-items:center;
+            gap:8px;
+            padding:7px 12px;
+            color:var(--primary-soft);
+            background:#ede7e1;
+            border:1px solid #ded5cd;
+            border-radius:999px;
+            font-size:12px;
+            font-weight:700;
+            white-space:nowrap;
+        }
+
+        .online-dot{
+            width:8px;
+            height:8px;
+            background:var(--green);
+            border-radius:50%;
+            box-shadow:0 0 0 4px rgba(22,163,74,.12);
+        }
+
+        .chat-container{
+            position:relative;
+            overflow:hidden;
+            background:var(--surface);
+            border:1px solid var(--border);
+            border-radius:22px;
+            box-shadow:
+                0 15px 38px rgba(63,45,36,.09),
+                0 3px 9px rgba(63,45,36,.04);
+        }
+
+        .chat-container::before{
+            content:"";
+            position:absolute;
+            z-index:2;
+            top:0;
+            left:0;
+            width:100%;
+            height:5px;
+            background:
+                linear-gradient(
+                    90deg,
+                    var(--primary-soft),
+                    var(--accent)
+                );
+        }
+
+        /* MESSAGES */
+
+        #messages{
+            height:560px;
+            overflow-y:auto;
+            padding:30px 26px 25px;
+            background:
+                linear-gradient(
+                    rgba(250,248,245,.94),
+                    rgba(250,248,245,.94)
+                ),
+                radial-gradient(
+                    circle at center,
+                    rgba(111,78,55,.04) 1px,
+                    transparent 1px
+                );
+            background-size:auto, 22px 22px;
+            scroll-behavior:smooth;
+        }
+
+        #messages::-webkit-scrollbar{
+            width:9px;
+        }
+
+        #messages::-webkit-scrollbar-track{
+            background:#eee7e0;
+        }
+
+        #messages::-webkit-scrollbar-thumb{
+            background:#c5b5a9;
+            border:2px solid #eee7e0;
+            border-radius:999px;
+        }
+
+        #messages::-webkit-scrollbar-thumb:hover{
+            background:#a99485;
+        }
+
+        .message{
+            position:relative;
+            max-width:72%;
+            margin:13px 0;
+            padding:13px 15px 10px;
+            border:1px solid transparent;
+            border-radius:17px;
+            line-height:1.45;
+            box-shadow:
+                0 4px 11px rgba(63,45,36,.07),
+                0 1px 3px rgba(63,45,36,.04);
+            animation:messageIn .2s ease;
+        }
+
+        @keyframes messageIn{
+            from{
+                opacity:0;
+                transform:translateY(4px);
+            }
+
+            to{
+                opacity:1;
+                transform:translateY(0);
+            }
+        }
+
+        .message p{
+            margin:0 0 7px;
+            font-size:15px;
+            white-space:pre-wrap;
+            overflow-wrap:anywhere;
+        }
+
+        .message small{
+            display:block;
+            color:#81746c;
+            font-size:11px;
+            text-align:right;
+        }
+
+        .out{
+            margin-left:auto;
+            color:#3c2b22;
+            background:#f4e7d9;
+            border-color:#e5d2c2;
+            border-bottom-right-radius:5px;
+        }
+
+        .out::after{
+            content:"";
+            position:absolute;
+            right:-7px;
+            bottom:0;
+            width:14px;
+            height:14px;
+            background:#f4e7d9;
+            border-right:1px solid #e5d2c2;
+            border-bottom:1px solid #e5d2c2;
+            clip-path:polygon(0 0,100% 100%,0 100%);
+        }
+
+        .in{
+            margin-right:auto;
+            color:var(--text);
+            background:white;
+            border-color:#e7e2dc;
+            border-bottom-left-radius:5px;
+        }
+
+        .in::after{
+            content:"";
+            position:absolute;
+            left:-7px;
+            bottom:0;
+            width:14px;
+            height:14px;
+            background:white;
+            border-left:1px solid #e7e2dc;
+            border-bottom:1px solid #e7e2dc;
+            clip-path:polygon(100% 0,100% 100%,0 100%);
+        }
+
+        /* MESSAGE FORM */
+
+        .form-box{
+            padding:19px 21px 21px;
+            background:white;
+            border-top:1px solid var(--border);
+        }
+
+        .input-wrapper{
+            display:flex;
+            align-items:flex-end;
+            gap:11px;
+            padding:8px;
+            background:var(--surface-soft);
+            border:1px solid #ddd5ce;
+            border-radius:16px;
+            transition:
+                border-color .2s ease,
+                box-shadow .2s ease,
+                background .2s ease;
+        }
+
+        .input-wrapper:focus-within{
+            background:white;
+            border-color:var(--accent);
+            box-shadow:0 0 0 4px rgba(217,119,6,.13);
+        }
+
+        textarea{
+            width:100%;
+            min-height:60px;
+            max-height:150px;
+            padding:10px 11px;
+            color:var(--text);
+            background:transparent;
+            border:none;
+            outline:none;
+            resize:vertical;
+            font-size:15px;
+            line-height:1.45;
+        }
+
+        textarea::placeholder{
+            color:#9b918a;
+        }
+
+        .send-button{
+            min-width:145px;
+            min-height:46px;
+            display:flex;
+            justify-content:center;
+            align-items:center;
+            gap:7px;
+            padding:12px 17px;
+            color:white;
+            background:
+                linear-gradient(
+                    135deg,
+                    var(--primary-soft),
+                    #8a5d3b
+                );
+            border:none;
+            border-radius:12px;
+            font-size:14px;
+            font-weight:750;
+            cursor:pointer;
+            white-space:nowrap;
+            box-shadow:0 6px 14px rgba(63,45,36,.18);
+            transition:
+                transform .2s ease,
+                filter .2s ease,
+                box-shadow .2s ease;
+        }
+
+        .send-button:hover{
+            transform:translateY(-2px);
+            filter:brightness(1.06);
+            box-shadow:0 9px 19px rgba(63,45,36,.23);
+        }
+
+        .send-button:active{
+            transform:translateY(0);
+        }
+
+        .form-help{
+            margin-top:9px;
+            color:var(--text-soft);
+            font-size:12px;
+            text-align:center;
+        }
+
+        /* RESPONSIVE */
+
+        @media(max-width:750px){
+
+            .header{
+                align-items:flex-start;
+                flex-direction:column;
+                padding:23px 20px;
+            }
+
+            .nav{
+                display:grid;
+                grid-template-columns:1fr 1fr;
+                width:100%;
+            }
+
+            .nav a{
+                width:100%;
+            }
+
+            .chat-status{
+                align-items:flex-start;
+                flex-direction:column;
+            }
+
+            .page-container{
+                width:94%;
+                margin-top:25px;
+            }
+
+            #messages{
+                height:520px;
+                padding:27px 18px 22px;
+            }
+
+            .message{
+                max-width:82%;
+            }
+
+            .input-wrapper{
+                align-items:stretch;
+                flex-direction:column;
+            }
+
+            .send-button{
+                width:100%;
+            }
+
+        }
+
+        @media(max-width:480px){
+
+            .chat-icon{
+                width:47px;
+                height:47px;
+                border-radius:14px;
+                font-size:22px;
+            }
+
+            .header h1{
+                font-size:21px;
+            }
+
+            .nav{
+                grid-template-columns:1fr;
+            }
+
+            .chat-container{
+                border-radius:18px;
+            }
+
+            #messages{
+                height:470px;
+                padding:25px 13px 20px;
+            }
+
+            .message{
+                max-width:88%;
+                padding:12px 13px 9px;
+            }
+
+            .message p{
+                font-size:14px;
+            }
+
+            .form-box{
+                padding:15px;
+            }
+
+        }
+
     </style>
 </head>
 
 <body>
 
-    <div class="header">
-        <h1>Chat con {{ telefono }}</h1>
+<header class="header">
 
-        <div class="nav">
-            <a href="/dashboard">← Dashboard</a>
-            <a href="/inbox">Inbox</a>
+    <div class="chat-heading">
+
+        <div class="chat-icon">
+            💬
         </div>
+
+        <div>
+
+            <h1>
+                Chat con {{ telefono }}
+            </h1>
+
+            <p class="header-subtitle">
+                Conversación de WhatsApp
+            </p>
+
+        </div>
+
     </div>
 
-    <div class="chat-container">
+    <nav class="nav">
+
+        <a
+            href="/dashboard"
+            class="dashboard-link"
+        >
+            ← Dashboard
+        </a>
+
+        <a
+            href="/inbox"
+            class="inbox-link"
+        >
+            💬 Inbox
+        </a>
+
+    </nav>
+
+</header>
+
+<main class="page-container">
+
+    <div class="chat-status">
+
+        <div class="status-text">
+
+            <h2>Conversación</h2>
+
+            <p>
+                Los mensajes se actualizan automáticamente.
+            </p>
+
+        </div>
+
+        <div class="online-status">
+
+            <span class="online-dot"></span>
+
+            Actualización automática
+
+        </div>
+
+    </div>
+
+    <section class="chat-container">
 
         <div id="messages">
+
             {% for m in mensajes %}
+
                 <div class="message {% if m.direccion == 'out' %}out{% else %}in{% endif %}">
+
                     <p>{{ m.mensaje }}</p>
-                    <small>{{ m.fecha }}</small>
+
+                    <small>
+                        {{ m.fecha }}
+                    </small>
+
                 </div>
+
             {% endfor %}
+
         </div>
 
-        <form id="sendForm" action="/manual/send" method="post" class="form-box">
-            <input type="hidden" name="telefono" value="{{ telefono }}">
+        <form
+            id="sendForm"
+            action="/manual/send"
+            method="post"
+            class="form-box"
+        >
 
-            <textarea
-                id="mensaje"
-                name="mensaje"
-                placeholder="Escribe tu respuesta..."
-                required></textarea>
+            <input
+                type="hidden"
+                name="telefono"
+                value="{{ telefono }}"
+            >
 
-            <button type="submit">Enviar por WhatsApp</button>
+            <div class="input-wrapper">
+
+                <textarea
+                    id="mensaje"
+                    name="mensaje"
+                    placeholder="Escribe tu respuesta..."
+                    required
+                ></textarea>
+
+                <button
+                    type="submit"
+                    class="send-button"
+                >
+                    Enviar
+                    <span>➤</span>
+                </button>
+
+            </div>
+
+            <p class="form-help">
+                El mensaje se enviará directamente por WhatsApp.
+            </p>
+
         </form>
 
-    </div>
+    </section>
+
+</main>
 
 <script>
 
@@ -184,7 +691,8 @@ setInterval(() => {
         .then(html => {
 
             const estabaAbajo =
-                messages.scrollHeight - messages.scrollTop <= messages.clientHeight + 50;
+                messages.scrollHeight - messages.scrollTop
+                <= messages.clientHeight + 50;
 
             messages.innerHTML = html;
 
@@ -194,40 +702,43 @@ setInterval(() => {
 
         });
 
-},3000);
+}, 3000);
 
 
 // Enviar sin recargar
-document.getElementById("sendForm").addEventListener("submit", async function(e){
+document
+    .getElementById("sendForm")
+    .addEventListener("submit", async function(e){
 
-    e.preventDefault();
+        e.preventDefault();
 
-    const form = new FormData(this);
+        const form = new FormData(this);
 
-    await fetch("/manual/send",{
-        method:"POST",
-        body:form
+        await fetch("/manual/send",{
+            method:"POST",
+            body:form
+        });
+
+        document.getElementById("mensaje").value = "";
+
+        // Espera medio segundo para que Meta responda
+        setTimeout(() => {
+
+            fetch("/chat/{{ telefono }}/messages")
+                .then(r => r.text())
+                .then(html => {
+
+                    messages.innerHTML = html;
+                    messages.scrollTop = messages.scrollHeight;
+
+                });
+
+        }, 500);
+
     });
-
-    document.getElementById("mensaje").value="";
-
-    // Espera medio segundo para que Meta responda
-    setTimeout(()=>{
-
-        fetch("/chat/{{ telefono }}/messages")
-            .then(r=>r.text())
-            .then(html=>{
-
-                messages.innerHTML=html;
-                messages.scrollTop=messages.scrollHeight;
-
-            });
-
-    },500);
-
-});
 
 </script>
 
 </body>
 </html>
+```

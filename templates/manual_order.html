@@ -1,8 +1,10 @@
+```html
 <!DOCTYPE html>
 <html lang="es">
 
 <head>
     <meta charset="UTF-8">
+
     <meta
         name="viewport"
         content="width=device-width, initial-scale=1.0"
@@ -11,237 +13,669 @@
     <title>Terrace | Añadir pedido</title>
 
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            font-family: Segoe UI, Arial, sans-serif;
+
+        :root{
+            --background:#f6f3ee;
+            --surface:#ffffff;
+            --surface-soft:#faf8f5;
+
+            --primary:#3f2d24;
+            --primary-soft:#6f4e37;
+            --accent:#d97706;
+            --accent-dark:#b45309;
+            --accent-soft:#fff7ed;
+
+            --text:#1f2937;
+            --text-soft:#6b7280;
+            --border:#e7e2dc;
+
+            --green:#16a34a;
+            --green-dark:#15803d;
+
+            --blue:#2563eb;
+            --blue-dark:#1d4ed8;
+
+            --red:#dc2626;
+            --red-dark:#b91c1c;
         }
 
-        body {
-            background: #f3f5f9;
-            color: #111827;
+        *{
+            margin:0;
+            padding:0;
+            box-sizing:border-box;
+            font-family:"Segoe UI",Arial,sans-serif;
         }
 
-        header {
-            background: #111827;
-            color: white;
-            padding: 25px 40px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            box-shadow: 0 5px 15px rgba(0, 0, 0, .15);
+        body{
+            min-height:100vh;
+            color:var(--text);
+            background:
+                radial-gradient(
+                    circle at top left,
+                    rgba(217,119,6,.08),
+                    transparent 30%
+                ),
+                var(--background);
         }
 
-        header p {
-            margin-top: 5px;
-            color: #cbd5e1;
+        /* HEADER */
+
+        header{
+            display:flex;
+            justify-content:space-between;
+            align-items:center;
+            gap:25px;
+            padding:28px 5%;
+            color:white;
+            background:
+                linear-gradient(
+                    135deg,
+                    #2d211b 0%,
+                    #4a3429 55%,
+                    #614331 100%
+                );
+            border-bottom:4px solid rgba(217,119,6,.75);
+            box-shadow:0 12px 35px rgba(63,45,36,.22);
         }
 
-        .back-button {
-            background: #374151;
-            color: white;
-            text-decoration: none;
-            padding: 12px 18px;
-            border-radius: 10px;
+        .brand{
+            display:flex;
+            align-items:center;
+            gap:15px;
         }
 
-        .container {
-            width: 90%;
-            max-width: 900px;
-            margin: 40px auto;
+        .brand-icon{
+            width:54px;
+            height:54px;
+            display:flex;
+            justify-content:center;
+            align-items:center;
+            flex-shrink:0;
+            font-size:27px;
+            background:rgba(255,255,255,.12);
+            border:1px solid rgba(255,255,255,.15);
+            border-radius:16px;
+            box-shadow:inset 0 1px 0 rgba(255,255,255,.15);
         }
 
-        .form-card {
-            background: white;
-            padding: 30px;
-            border-radius: 18px;
-            box-shadow: 0 10px 25px rgba(0, 0, 0, .08);
+        header h1{
+            font-size:29px;
+            line-height:1.1;
+            letter-spacing:-.5px;
         }
 
-        .form-card h2 {
-            margin-bottom: 25px;
+        header p{
+            margin-top:5px;
+            color:#e7ded7;
+            font-size:14px;
         }
 
-        .form-grid {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 20px;
+        .back-button{
+            min-height:43px;
+            display:inline-flex;
+            justify-content:center;
+            align-items:center;
+            gap:7px;
+            padding:11px 17px;
+            color:white;
+            background:var(--green);
+            border-radius:11px;
+            font-size:14px;
+            font-weight:650;
+            text-decoration:none;
+            white-space:nowrap;
+            box-shadow:0 5px 15px rgba(0,0,0,.12);
+            transition:
+                transform .2s ease,
+                background .2s ease,
+                box-shadow .2s ease;
         }
 
-        .field {
-            display: flex;
-            flex-direction: column;
-            gap: 7px;
+        .back-button:hover{
+            transform:translateY(-2px);
+            background:var(--green-dark);
+            box-shadow:0 8px 20px rgba(0,0,0,.18);
         }
 
-        .field.full {
-            grid-column: 1 / -1;
+        .back-button:active{
+            transform:translateY(0);
         }
 
-        label {
-            font-weight: 600;
-            color: #374151;
+        /* MAIN CONTAINER */
+
+        .container{
+            width:92%;
+            max-width:950px;
+            margin:38px auto 60px;
+        }
+
+        .page-heading{
+            margin-bottom:20px;
+        }
+
+        .page-heading h2{
+            color:var(--primary);
+            font-size:24px;
+            letter-spacing:-.4px;
+        }
+
+        .page-heading p{
+            margin-top:5px;
+            color:var(--text-soft);
+            font-size:14px;
+        }
+
+        /* FORM CARD */
+
+        .form-card{
+            position:relative;
+            overflow:hidden;
+            padding:32px;
+            background:var(--surface);
+            border:1px solid var(--border);
+            border-radius:22px;
+            box-shadow:
+                0 14px 35px rgba(63,45,36,.08),
+                0 3px 9px rgba(63,45,36,.04);
+        }
+
+        .form-card::before{
+            content:"";
+            position:absolute;
+            top:0;
+            left:0;
+            width:100%;
+            height:5px;
+            background:
+                linear-gradient(
+                    90deg,
+                    var(--primary-soft),
+                    var(--accent)
+                );
+        }
+
+        .form-section-title{
+            display:flex;
+            align-items:center;
+            gap:10px;
+            margin-bottom:24px;
+            padding-bottom:16px;
+            color:var(--primary);
+            border-bottom:1px solid var(--border);
+        }
+
+        .form-section-title-icon{
+            width:38px;
+            height:38px;
+            display:flex;
+            justify-content:center;
+            align-items:center;
+            flex-shrink:0;
+            background:#f5eee7;
+            border:1px solid #e6d8cc;
+            border-radius:11px;
+            font-size:18px;
+        }
+
+        .form-section-title h2{
+            font-size:21px;
+            letter-spacing:-.3px;
+        }
+
+        .form-section-title p{
+            margin-top:3px;
+            color:var(--text-soft);
+            font-size:13px;
+            font-weight:400;
+        }
+
+        /* ERROR */
+
+        .error{
+            display:flex;
+            align-items:flex-start;
+            gap:10px;
+            margin-bottom:22px;
+            padding:14px 16px;
+            color:#991b1b;
+            background:#fef2f2;
+            border:1px solid #fecaca;
+            border-left:5px solid var(--red);
+            border-radius:11px;
+            font-size:14px;
+            line-height:1.5;
+        }
+
+        /* FORM FIELDS */
+
+        .form-grid{
+            display:grid;
+            grid-template-columns:repeat(2,1fr);
+            gap:20px;
+        }
+
+        .field{
+            display:flex;
+            flex-direction:column;
+            gap:8px;
+        }
+
+        .field.full{
+            grid-column:1 / -1;
+        }
+
+        label{
+            color:var(--primary);
+            font-size:14px;
+            font-weight:700;
         }
 
         input,
         select,
-        textarea {
-            width: 100%;
-            border: 1px solid #d1d5db;
-            border-radius: 10px;
-            padding: 12px;
-            font-size: 15px;
-            background: white;
+        textarea{
+            width:100%;
+            padding:12px 13px;
+            color:var(--text);
+            background:var(--surface-soft);
+            border:1px solid #ddd5ce;
+            border-radius:11px;
+            font-size:15px;
+            transition:
+                border-color .2s ease,
+                box-shadow .2s ease,
+                background .2s ease;
+        }
+
+        input::placeholder,
+        textarea::placeholder{
+            color:#9b918a;
+        }
+
+        input:hover,
+        select:hover,
+        textarea:hover{
+            border-color:#cbbeb4;
         }
 
         input:focus,
         select:focus,
-        textarea:focus {
-            outline: 2px solid #7c3aed;
-            border-color: transparent;
+        textarea:focus{
+            outline:none;
+            background:white;
+            border-color:var(--accent);
+            box-shadow:0 0 0 4px rgba(217,119,6,.14);
         }
 
-        textarea {
-            min-height: 90px;
-            resize: vertical;
+        textarea{
+            min-height:100px;
+            resize:vertical;
+            line-height:1.5;
         }
 
-        .products-title {
-            margin-top: 30px;
-            margin-bottom: 15px;
+        select{
+            cursor:pointer;
         }
 
-        .product-row {
-            display: grid;
-            grid-template-columns: 2fr 90px 2fr 50px;
-            gap: 10px;
-            margin-bottom: 12px;
-            align-items: center;
+        /* PRODUCTS */
+
+        .products-section{
+            margin-top:32px;
+            padding-top:25px;
+            border-top:1px solid var(--border);
         }
 
-        .add-product {
-            border: none;
-            cursor: pointer;
-            color: white;
-            background: #2563eb;
-            padding: 11px 16px;
-            border-radius: 10px;
-            font-weight: bold;
-            margin-top: 5px;
+        .products-heading{
+            display:flex;
+            justify-content:space-between;
+            align-items:center;
+            gap:15px;
+            margin-bottom:17px;
         }
 
-        .remove-product {
-            border: none;
-            cursor: pointer;
-            color: white;
-            background: #dc2626;
-            height: 43px;
-            border-radius: 9px;
-            font-size: 18px;
+        .products-title{
+            display:flex;
+            align-items:center;
+            gap:9px;
+            color:var(--primary);
+            font-size:19px;
         }
 
-        .submit-button {
-            width: 100%;
-            border: none;
-            cursor: pointer;
-            color: white;
-            background: #7c3aed;
-            padding: 15px;
-            border-radius: 10px;
-            font-size: 17px;
-            font-weight: bold;
-            margin-top: 30px;
+        .products-help{
+            color:var(--text-soft);
+            font-size:13px;
         }
 
-        .submit-button:hover {
-            background: #6d28d9;
+        #products-container{
+            display:flex;
+            flex-direction:column;
+            gap:12px;
         }
 
-        .error {
-            background: #fee2e2;
-            border: 1px solid #fca5a5;
-            color: #991b1b;
-            padding: 14px;
-            border-radius: 10px;
-            margin-bottom: 20px;
+        .product-row{
+            display:grid;
+            grid-template-columns:minmax(190px,2fr) 90px minmax(190px,2fr) 46px;
+            align-items:center;
+            gap:11px;
+            padding:15px;
+            background:var(--surface-soft);
+            border:1px solid var(--border);
+            border-radius:14px;
+            transition:
+                border-color .2s ease,
+                box-shadow .2s ease;
         }
 
-        .hidden {
-            display: none;
+        .product-row:hover{
+            border-color:#d7cbc1;
+            box-shadow:0 5px 13px rgba(63,45,36,.05);
         }
 
-        @media (max-width: 700px) {
-            header {
-                padding: 20px;
+        .product-row input,
+        .product-row select{
+            background:white;
+        }
+
+        /* BUTTONS */
+
+        button{
+            font-family:inherit;
+        }
+
+        .remove-product{
+            width:46px;
+            height:44px;
+            display:flex;
+            justify-content:center;
+            align-items:center;
+            color:white;
+            background:var(--red);
+            border:none;
+            border-radius:10px;
+            font-size:22px;
+            font-weight:500;
+            cursor:pointer;
+            box-shadow:0 4px 10px rgba(220,38,38,.17);
+            transition:
+                transform .2s ease,
+                background .2s ease,
+                box-shadow .2s ease;
+        }
+
+        .remove-product:hover{
+            transform:translateY(-2px);
+            background:var(--red-dark);
+            box-shadow:0 7px 14px rgba(220,38,38,.23);
+        }
+
+        .add-product{
+            display:inline-flex;
+            justify-content:center;
+            align-items:center;
+            gap:7px;
+            margin-top:16px;
+            padding:11px 16px;
+            color:var(--primary);
+            background:#f5eee7;
+            border:1px solid #e2d4c9;
+            border-radius:11px;
+            font-size:14px;
+            font-weight:700;
+            cursor:pointer;
+            transition:
+                transform .2s ease,
+                background .2s ease,
+                border-color .2s ease;
+        }
+
+        .add-product:hover{
+            transform:translateY(-2px);
+            background:#ede2d8;
+            border-color:#d5c3b6;
+        }
+
+        .submit-area{
+            margin-top:30px;
+            padding-top:25px;
+            border-top:1px solid var(--border);
+        }
+
+        .submit-button{
+            width:100%;
+            min-height:52px;
+            display:flex;
+            justify-content:center;
+            align-items:center;
+            gap:8px;
+            padding:14px 18px;
+            color:white;
+            background:
+                linear-gradient(
+                    135deg,
+                    var(--primary-soft),
+                    #8a5d3b
+                );
+            border:none;
+            border-radius:12px;
+            font-size:16px;
+            font-weight:750;
+            cursor:pointer;
+            box-shadow:0 7px 18px rgba(63,45,36,.19);
+            transition:
+                transform .2s ease,
+                filter .2s ease,
+                box-shadow .2s ease;
+        }
+
+        .submit-button:hover{
+            transform:translateY(-2px);
+            filter:brightness(1.06);
+            box-shadow:0 11px 24px rgba(63,45,36,.24);
+        }
+
+        .submit-button:active,
+        .remove-product:active,
+        .add-product:active{
+            transform:translateY(0);
+        }
+
+        .hidden{
+            display:none;
+        }
+
+        /* RESPONSIVE */
+
+        @media(max-width:800px){
+
+            header{
+                align-items:flex-start;
+                flex-direction:column;
             }
 
-            .form-grid {
-                grid-template-columns: 1fr;
+            .back-button{
+                width:100%;
             }
 
-            .field.full {
-                grid-column: auto;
+            .product-row{
+                grid-template-columns:minmax(180px,2fr) 85px;
             }
 
-            .product-row {
-                grid-template-columns: 1fr;
-                padding: 15px;
-                border: 1px solid #e5e7eb;
-                border-radius: 12px;
+            .product-row input[name="notas_producto"]{
+                grid-column:1 / -1;
             }
 
-            .remove-product {
-                width: 100%;
+            .remove-product{
+                position:absolute;
+                right:15px;
             }
+
+            .product-row{
+                position:relative;
+                padding-right:72px;
+            }
+
         }
+
+        @media(max-width:650px){
+
+            header{
+                padding:23px 20px;
+            }
+
+            header h1{
+                font-size:25px;
+            }
+
+            .brand-icon{
+                width:49px;
+                height:49px;
+                border-radius:14px;
+                font-size:24px;
+            }
+
+            .container{
+                width:94%;
+                margin-top:25px;
+            }
+
+            .form-card{
+                padding:25px 20px;
+                border-radius:18px;
+            }
+
+            .form-grid{
+                grid-template-columns:1fr;
+            }
+
+            .field.full{
+                grid-column:auto;
+            }
+
+            .products-heading{
+                align-items:flex-start;
+                flex-direction:column;
+                gap:5px;
+            }
+
+            .product-row{
+                display:grid;
+                grid-template-columns:1fr;
+                gap:10px;
+                padding:15px;
+            }
+
+            .product-row input[name="notas_producto"]{
+                grid-column:auto;
+            }
+
+            .remove-product{
+                position:static;
+                width:100%;
+                height:41px;
+                font-size:20px;
+            }
+
+            .add-product{
+                width:100%;
+            }
+
+        }
+
     </style>
 </head>
 
 <body>
 
 <header>
-    <div>
-        <h1>🍔 Terrace</h1>
-        <p>Añadir pedido manual</p>
+
+    <div class="brand">
+
+        <div class="brand-icon">
+            🍔
+        </div>
+
+        <div>
+            <h1>Terrace</h1>
+            <p>Añadir pedido manual</p>
+        </div>
+
     </div>
 
-    <a href="/dashboard" class="back-button">
+    <a
+        href="/dashboard"
+        class="back-button"
+    >
         ← Volver al dashboard
     </a>
+
 </header>
 
-<div class="container">
+<main class="container">
+
+    <div class="page-heading">
+
+        <h2>Nuevo pedido</h2>
+
+        <p>
+            Registra manualmente la información del cliente y los productos.
+        </p>
+
+    </div>
 
     <form
         class="form-card"
         action="/orders/manual"
         method="post"
     >
-        <h2>Información del pedido</h2>
+
+        <div class="form-section-title">
+
+            <div class="form-section-title-icon">
+                👤
+            </div>
+
+            <div>
+                <h2>Información del pedido</h2>
+
+                <p>
+                    Completa los datos principales del cliente.
+                </p>
+            </div>
+
+        </div>
 
         {% if error %}
+
             <div class="error">
-                {{ error }}
+                <span>⚠️</span>
+                <span>{{ error }}</span>
             </div>
+
         {% endif %}
 
         <div class="form-grid">
 
             <div class="field">
-                <label for="nombre">Nombre del cliente *</label>
+
+                <label for="nombre">
+                    Nombre del cliente *
+                </label>
 
                 <input
                     type="text"
                     id="nombre"
                     name="nombre"
                     value="{{ form_data.nombre if form_data else '' }}"
+                    placeholder="Nombre del cliente"
                     required
                 >
+
             </div>
 
             <div class="field">
-                <label for="telefono">Teléfono</label>
+
+                <label for="telefono">
+                    Teléfono
+                </label>
 
                 <input
                     type="text"
@@ -250,10 +684,14 @@
                     value="{{ form_data.telefono if form_data else '' }}"
                     placeholder="Opcional"
                 >
+
             </div>
 
             <div class="field">
-                <label for="tipo_entrega">Tipo de entrega *</label>
+
+                <label for="tipo_entrega">
+                    Tipo de entrega *
+                </label>
 
                 <select
                     id="tipo_entrega"
@@ -261,7 +699,10 @@
                     onchange="actualizarDireccion()"
                     required
                 >
-                    <option value="">Seleccionar</option>
+
+                    <option value="">
+                        Seleccionar
+                    </option>
 
                     <option
                         value="domicilio"
@@ -280,11 +721,19 @@
                     >
                         Recoger en Terrace
                     </option>
+
                 </select>
+
             </div>
 
-            <div class="field" id="direccion-container">
-                <label for="direccion">Local o dirección</label>
+            <div
+                class="field"
+                id="direccion-container"
+            >
+
+                <label for="direccion">
+                    Local o dirección
+                </label>
 
                 <input
                     type="text"
@@ -293,17 +742,24 @@
                     value="{{ form_data.direccion if form_data else '' }}"
                     placeholder="Ejemplo: Local P40"
                 >
+
             </div>
 
             <div class="field">
-                <label for="metodo_pago">Método de pago *</label>
+
+                <label for="metodo_pago">
+                    Método de pago *
+                </label>
 
                 <select
                     id="metodo_pago"
                     name="metodo_pago"
                     required
                 >
-                    <option value="">Seleccionar</option>
+
+                    <option value="">
+                        Seleccionar
+                    </option>
 
                     <option
                         value="efectivo"
@@ -322,11 +778,16 @@
                     >
                         Transferencia
                     </option>
+
                 </select>
+
             </div>
 
             <div class="field">
-                <label for="hora">Hora solicitada</label>
+
+                <label for="hora">
+                    Hora solicitada
+                </label>
 
                 <input
                     type="time"
@@ -334,82 +795,121 @@
                     name="hora"
                     value="{{ form_data.hora if form_data else '' }}"
                 >
+
             </div>
 
             <div class="field full">
-                <label for="notas">Notas generales</label>
+
+                <label for="notas">
+                    Notas generales
+                </label>
 
                 <textarea
                     id="notas"
                     name="notas"
                     placeholder="Información adicional del pedido"
                 >{{ form_data.notas if form_data else '' }}</textarea>
+
             </div>
 
         </div>
 
-        <h3 class="products-title">Productos</h3>
+        <section class="products-section">
 
-        <div id="products-container">
+            <div class="products-heading">
 
-            <div class="product-row">
+                <h3 class="products-title">
+                    🛍️ Productos
+                </h3>
 
-                <select name="producto" required>
-                    <option value="">Seleccionar producto</option>
+                <span class="products-help">
+                    Selecciona el producto, la cantidad y sus notas.
+                </span>
 
-                    {% for item in menu %}
-                        <option value="{{ item['producto'] }}">
-                            {{ item["producto"] }} —
-                            ${{ "{:,.0f}".format(item["precio"]) }}
+            </div>
+
+            <div id="products-container">
+
+                <div class="product-row">
+
+                    <select
+                        name="producto"
+                        required
+                    >
+
+                        <option value="">
+                            Seleccionar producto
                         </option>
-                    {% endfor %}
-                </select>
 
-                <input
-                    type="number"
-                    name="cantidad"
-                    value="1"
-                    min="1"
-                    required
-                >
+                        {% for item in menu %}
 
-                <input
-                    type="text"
-                    name="notas_producto"
-                    placeholder="Notas: sin azúcar, deslactosada..."
-                >
+                            <option value="{{ item['producto'] }}">
+                                {{ item["producto"] }} —
+                                ${{ "{:,.0f}".format(item["precio"]) }}
+                            </option>
 
-                <button
-                    type="button"
-                    class="remove-product"
-                    onclick="eliminarProducto(this)"
-                    title="Eliminar producto"
-                >
-                    ×
-                </button>
+                        {% endfor %}
+
+                    </select>
+
+                    <input
+                        type="number"
+                        name="cantidad"
+                        value="1"
+                        min="1"
+                        aria-label="Cantidad"
+                        required
+                    >
+
+                    <input
+                        type="text"
+                        name="notas_producto"
+                        placeholder="Notas: sin azúcar, deslactosada..."
+                    >
+
+                    <button
+                        type="button"
+                        class="remove-product"
+                        onclick="eliminarProducto(this)"
+                        title="Eliminar producto"
+                        aria-label="Eliminar producto"
+                    >
+                        ×
+                    </button>
+
+                </div>
 
             </div>
 
+            <button
+                type="button"
+                class="add-product"
+                onclick="agregarProducto()"
+            >
+                ＋ Agregar otro producto
+            </button>
+
+        </section>
+
+        <div class="submit-area">
+
+            <button
+                type="submit"
+                class="submit-button"
+            >
+                ✅ Crear pedido
+            </button>
+
         </div>
-
-        <button
-            type="button"
-            class="add-product"
-            onclick="agregarProducto()"
-        >
-            ＋ Agregar otro producto
-        </button>
-
-        <button type="submit" class="submit-button">
-            ✅ Crear pedido
-        </button>
 
     </form>
 
-</div>
+</main>
 
 <script>
+
     function agregarProducto() {
+
         const container = document.getElementById(
             "products-container"
         );
@@ -433,9 +933,11 @@
         ).value = "";
 
         container.appendChild(nuevaFila);
+
     }
 
     function eliminarProducto(button) {
+
         const container = document.getElementById(
             "products-container"
         );
@@ -445,6 +947,7 @@
         );
 
         if (filas.length === 1) {
+
             filas[0].querySelector(
                 'select[name="producto"]'
             ).value = "";
@@ -458,12 +961,15 @@
             ).value = "";
 
             return;
+
         }
 
         button.closest(".product-row").remove();
+
     }
 
     function actualizarDireccion() {
+
         const tipoEntrega = document.getElementById(
             "tipo_entrega"
         ).value;
@@ -477,17 +983,24 @@
         );
 
         if (tipoEntrega === "recoger") {
+
             container.classList.add("hidden");
             input.required = false;
             input.value = "";
+
         } else {
+
             container.classList.remove("hidden");
             input.required = tipoEntrega === "domicilio";
+
         }
+
     }
 
     actualizarDireccion();
+
 </script>
 
 </body>
 </html>
+```

@@ -1,7 +1,10 @@
+```html
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
     <meta charset="UTF-8">
+
     <meta
         name="viewport"
         content="width=device-width, initial-scale=1.0"
@@ -10,290 +13,814 @@
     <title>Terrace | Administrar menú</title>
 
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            font-family: "Segoe UI", Arial, sans-serif;
+
+        :root{
+            --background:#f6f3ee;
+            --surface:#ffffff;
+            --surface-soft:#faf8f5;
+
+            --primary:#3f2d24;
+            --primary-soft:#6f4e37;
+            --accent:#d97706;
+            --accent-dark:#b45309;
+            --accent-soft:#fff7ed;
+
+            --text:#1f2937;
+            --text-soft:#6b7280;
+            --border:#e7e2dc;
+
+            --green:#16a34a;
+            --green-dark:#15803d;
+            --green-soft:#ecfdf5;
+
+            --blue:#2563eb;
+            --blue-dark:#1d4ed8;
+            --blue-soft:#eff6ff;
+
+            --red:#dc2626;
+            --red-dark:#b91c1c;
+            --red-soft:#fef2f2;
         }
 
-        body {
-            background: #f3f5f9;
-            color: #111827;
+        *{
+            margin:0;
+            padding:0;
+            box-sizing:border-box;
+            font-family:"Segoe UI",Arial,sans-serif;
         }
 
-        header {
-            background: #111827;
-            color: white;
-            padding: 24px 40px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            gap: 20px;
-            flex-wrap: wrap;
-            box-shadow: 0 5px 15px rgba(0, 0, 0, .15);
+        body{
+            min-height:100vh;
+            color:var(--text);
+            background:
+                radial-gradient(
+                    circle at top left,
+                    rgba(217,119,6,.08),
+                    transparent 30%
+                ),
+                var(--background);
         }
 
-        header h1 {
-            font-size: 27px;
+        /* HEADER */
+
+        header{
+            display:flex;
+            justify-content:space-between;
+            align-items:center;
+            gap:25px;
+            padding:28px 5%;
+            color:white;
+            background:
+                linear-gradient(
+                    135deg,
+                    #2d211b 0%,
+                    #4a3429 55%,
+                    #614331 100%
+                );
+            border-bottom:4px solid rgba(217,119,6,.75);
+            box-shadow:0 12px 35px rgba(63,45,36,.22);
         }
 
-        header p {
-            color: #cbd5e1;
-            margin-top: 5px;
+        .brand{
+            display:flex;
+            align-items:center;
+            gap:15px;
         }
 
-        .back-button {
-            display: inline-block;
-            background: #2563eb;
-            color: white;
-            text-decoration: none;
-            padding: 11px 17px;
-            border-radius: 10px;
-            font-weight: 600;
+        .brand-icon{
+            width:54px;
+            height:54px;
+            display:flex;
+            justify-content:center;
+            align-items:center;
+            flex-shrink:0;
+            font-size:27px;
+            background:rgba(255,255,255,.12);
+            border:1px solid rgba(255,255,255,.15);
+            border-radius:16px;
+            box-shadow:inset 0 1px 0 rgba(255,255,255,.15);
         }
 
-        .container {
-            width: 92%;
-            max-width: 1250px;
-            margin: 35px auto;
+        header h1{
+            font-size:29px;
+            line-height:1.1;
+            letter-spacing:-.5px;
         }
+
+        header p{
+            margin-top:5px;
+            color:#e7ded7;
+            font-size:14px;
+        }
+
+        .back-button{
+            min-height:43px;
+            display:inline-flex;
+            justify-content:center;
+            align-items:center;
+            gap:7px;
+            padding:11px 17px;
+            color:white;
+            background:var(--green);
+            border-radius:11px;
+            font-size:14px;
+            font-weight:650;
+            text-decoration:none;
+            white-space:nowrap;
+            box-shadow:0 5px 15px rgba(0,0,0,.12);
+            transition:
+                transform .2s ease,
+                background .2s ease,
+                box-shadow .2s ease;
+        }
+
+        .back-button:hover{
+            transform:translateY(-2px);
+            background:var(--green-dark);
+            box-shadow:0 8px 20px rgba(0,0,0,.18);
+        }
+
+        .back-button:active{
+            transform:translateY(0);
+        }
+
+        /* MAIN */
+
+        .container{
+            width:92%;
+            max-width:1250px;
+            margin:38px auto 60px;
+        }
+
+        .page-heading{
+            display:flex;
+            justify-content:space-between;
+            align-items:flex-end;
+            gap:20px;
+            margin-bottom:22px;
+        }
+
+        .page-heading h2{
+            color:var(--primary);
+            font-size:25px;
+            letter-spacing:-.4px;
+        }
+
+        .page-heading p{
+            margin-top:5px;
+            color:var(--text-soft);
+            font-size:14px;
+        }
+
+        .menu-status{
+            display:inline-flex;
+            align-items:center;
+            gap:7px;
+            padding:7px 12px;
+            color:var(--primary-soft);
+            background:#ede7e1;
+            border:1px solid #ded5cd;
+            border-radius:999px;
+            font-size:13px;
+            font-weight:700;
+        }
+
+        .status-dot{
+            width:8px;
+            height:8px;
+            background:var(--green);
+            border-radius:50%;
+            box-shadow:0 0 0 4px rgba(22,163,74,.12);
+        }
+
+        /* SECTIONS */
 
         .add-section,
-        .menu-section {
-            background: white;
-            border-radius: 18px;
-            padding: 25px;
-            box-shadow: 0 10px 25px rgba(0, 0, 0, .08);
-            margin-bottom: 28px;
+        .menu-section{
+            position:relative;
+            overflow:hidden;
+            margin-bottom:28px;
+            padding:27px;
+            background:var(--surface);
+            border:1px solid var(--border);
+            border-radius:21px;
+            box-shadow:
+                0 13px 32px rgba(63,45,36,.08),
+                0 3px 8px rgba(63,45,36,.04);
         }
 
-        .section-title {
-            margin-bottom: 18px;
+        .add-section::before,
+        .menu-section::before{
+            content:"";
+            position:absolute;
+            top:0;
+            left:0;
+            width:100%;
+            height:5px;
+            background:
+                linear-gradient(
+                    90deg,
+                    var(--primary-soft),
+                    var(--accent)
+                );
         }
 
-        .add-form {
-            display: grid;
-            grid-template-columns: minmax(220px, 1fr) 180px auto;
-            gap: 12px;
+        .section-header{
+            display:flex;
+            justify-content:space-between;
+            align-items:center;
+            gap:20px;
+            margin-bottom:21px;
+            padding-bottom:17px;
+            border-bottom:1px solid var(--border);
         }
 
-        input {
-            width: 100%;
-            border: 1px solid #d1d5db;
-            border-radius: 9px;
-            padding: 11px 12px;
-            font-size: 15px;
+        .section-title-wrap{
+            display:flex;
+            align-items:center;
+            gap:11px;
         }
 
-        input:focus {
-            outline: 2px solid #93c5fd;
-            border-color: #2563eb;
+        .section-icon{
+            width:40px;
+            height:40px;
+            display:flex;
+            justify-content:center;
+            align-items:center;
+            flex-shrink:0;
+            background:#f5eee7;
+            border:1px solid #e6d8cc;
+            border-radius:11px;
+            font-size:19px;
         }
 
-        button {
-            border: none;
-            border-radius: 9px;
-            padding: 11px 15px;
-            color: white;
-            cursor: pointer;
-            font-weight: 600;
-            transition: .2s;
+        .section-title{
+            color:var(--primary);
+            font-size:21px;
+            letter-spacing:-.3px;
         }
 
-        button:hover {
-            transform: translateY(-1px);
-            opacity: .92;
+        .section-description{
+            margin-top:3px;
+            color:var(--text-soft);
+            font-size:13px;
         }
 
-        .add-button {
-            background: #16a34a;
+        /* ADD FORM */
+
+        .add-form{
+            display:grid;
+            grid-template-columns:minmax(220px,1fr) 180px auto;
+            align-items:end;
+            gap:13px;
         }
 
-        .edit-button {
-            background: #2563eb;
+        .input-group{
+            display:flex;
+            flex-direction:column;
+            gap:7px;
         }
 
-        .disable-button {
-            background: #dc2626;
+        label{
+            color:var(--primary);
+            font-size:14px;
+            font-weight:700;
         }
 
-        .enable-button {
-            background: #16a34a;
+        input{
+            width:100%;
+            min-height:44px;
+            padding:11px 13px;
+            color:var(--text);
+            background:var(--surface-soft);
+            border:1px solid #ddd5ce;
+            border-radius:11px;
+            font-size:15px;
+            transition:
+                background .2s ease,
+                border-color .2s ease,
+                box-shadow .2s ease;
         }
 
-        .product-list {
-            display: flex;
-            flex-direction: column;
-            gap: 13px;
+        input::placeholder{
+            color:#9b918a;
         }
 
-        .product-card {
-            display: grid;
-            grid-template-columns: minmax(220px, 1fr) 150px auto;
-            align-items: center;
-            gap: 12px;
-            border: 1px solid #e5e7eb;
-            border-radius: 13px;
-            padding: 14px;
+        input:hover{
+            border-color:#cbbeb4;
         }
 
-        .product-card.inactive {
-            background: #f9fafb;
-            opacity: .7;
+        input:focus{
+            outline:none;
+            background:white;
+            border-color:var(--accent);
+            box-shadow:0 0 0 4px rgba(217,119,6,.14);
         }
 
-        .product-info {
-            min-width: 0;
+        /* BUTTONS */
+
+        button{
+            min-height:43px;
+            display:inline-flex;
+            justify-content:center;
+            align-items:center;
+            gap:7px;
+            padding:10px 15px;
+            color:white;
+            border:none;
+            border-radius:10px;
+            font-family:inherit;
+            font-size:14px;
+            font-weight:700;
+            cursor:pointer;
+            box-shadow:0 4px 11px rgba(0,0,0,.1);
+            transition:
+                transform .2s ease,
+                filter .2s ease,
+                box-shadow .2s ease;
         }
 
-        .product-name {
-            font-size: 17px;
-            font-weight: 700;
-            overflow-wrap: anywhere;
+        button:hover{
+            transform:translateY(-2px);
+            filter:brightness(1.05);
+            box-shadow:0 7px 15px rgba(0,0,0,.15);
         }
 
-        .product-price {
-            color: #4b5563;
-            margin-top: 4px;
+        button:active{
+            transform:translateY(0);
         }
 
-        .status {
-            display: inline-block;
-            margin-top: 7px;
-            padding: 4px 10px;
-            border-radius: 20px;
-            font-size: 12px;
-            font-weight: 700;
+        .add-button{
+            min-width:130px;
+            background:
+                linear-gradient(
+                    135deg,
+                    var(--primary-soft),
+                    #8a5d3b
+                );
         }
 
-        .status-active {
-            background: #dcfce7;
-            color: #166534;
+        .edit-button{
+            width:100%;
+            margin-top:9px;
+            background:var(--blue);
         }
 
-        .status-inactive {
-            background: #fee2e2;
-            color: #991b1b;
+        .edit-button:hover{
+            background:var(--blue-dark);
         }
 
-        .edit-form {
-            display: contents;
+        .disable-button{
+            width:100%;
+            background:var(--accent);
         }
 
-        .actions {
-            display: flex;
-
-            flex-direction: column;
-            
-            gap: 8px;
-            justify-content: flex-end;
-            flex-wrap: wrap;
+        .disable-button:hover{
+            background:var(--accent-dark);
         }
 
-        .empty {
-            text-align: center;
-            color: #6b7280;
-            padding: 30px;
+        .enable-button{
+            width:100%;
+            background:var(--green);
         }
 
-        .delete-btn {
-            background: #dc2626;
-            color: white;
-            border: none;
-            padding: 10px 16px;
-            border-radius: 8px;
-            cursor: pointer;
-            font-weight: 600;
+        .enable-button:hover{
+            background:var(--green-dark);
         }
 
-        .delete-btn:hover {
-            background: #b91c1c;
+        .delete-btn{
+            width:100%;
+            background:var(--red);
         }
 
-        @media (max-width: 800px) {
-            header {
-                padding: 20px;
+        .delete-btn:hover{
+            background:var(--red-dark);
+        }
+
+        /* PRODUCT LIST */
+
+        .product-list{
+            display:flex;
+            flex-direction:column;
+            gap:14px;
+        }
+
+        .product-card{
+            position:relative;
+            display:grid;
+            grid-template-columns:minmax(220px,1fr) minmax(210px,280px) 155px;
+            align-items:center;
+            gap:17px;
+            padding:17px;
+            background:var(--surface-soft);
+            border:1px solid var(--border);
+            border-radius:15px;
+            transition:
+                transform .2s ease,
+                border-color .2s ease,
+                box-shadow .2s ease;
+        }
+
+        .product-card:hover{
+            transform:translateY(-2px);
+            border-color:#d4c7bd;
+            box-shadow:0 8px 18px rgba(63,45,36,.07);
+        }
+
+        .product-card::before{
+            content:"";
+            position:absolute;
+            top:14px;
+            bottom:14px;
+            left:0;
+            width:4px;
+            background:var(--green);
+            border-radius:0 4px 4px 0;
+        }
+
+        .product-card.inactive{
+            background:#f4f1ed;
+            opacity:.78;
+        }
+
+        .product-card.inactive::before{
+            background:var(--red);
+        }
+
+        .product-info{
+            min-width:0;
+            padding-left:6px;
+        }
+
+        .product-name{
+            color:var(--primary);
+            font-size:18px;
+            font-weight:750;
+            line-height:1.3;
+            overflow-wrap:anywhere;
+        }
+
+        .product-price{
+            margin-top:6px;
+            color:var(--primary-soft);
+            font-size:15px;
+            font-weight:650;
+        }
+
+        .status{
+            display:inline-flex;
+            align-items:center;
+            gap:5px;
+            margin-top:9px;
+            padding:5px 10px;
+            border-radius:999px;
+            font-size:12px;
+            font-weight:750;
+        }
+
+        .status-active{
+            color:#166534;
+            background:#dcfce7;
+            border:1px solid #bbf7d0;
+        }
+
+        .status-active::before{
+            content:"";
+            width:7px;
+            height:7px;
+            background:var(--green);
+            border-radius:50%;
+        }
+
+        .status-inactive{
+            color:#991b1b;
+            background:#fee2e2;
+            border:1px solid #fecaca;
+        }
+
+        .status-inactive::before{
+            content:"";
+            width:7px;
+            height:7px;
+            background:var(--red);
+            border-radius:50%;
+        }
+
+        /* EDIT AREA */
+
+        .edit-area{
+            padding:13px;
+            background:white;
+            border:1px solid #e8e0d9;
+            border-radius:12px;
+        }
+
+        .edit-area input{
+            background:white;
+        }
+
+        .edit-area input + input{
+            margin-top:8px;
+        }
+
+        .actions{
+            display:flex;
+            flex-direction:column;
+            justify-content:center;
+            gap:9px;
+        }
+
+        .actions form{
+            width:100%;
+        }
+
+        /* EMPTY */
+
+        .empty{
+            display:flex;
+            flex-direction:column;
+            justify-content:center;
+            align-items:center;
+            min-height:220px;
+            padding:35px;
+            color:var(--text-soft);
+            text-align:center;
+            background:var(--surface-soft);
+            border:1px dashed #d9cec5;
+            border-radius:14px;
+        }
+
+        .empty-icon{
+            width:65px;
+            height:65px;
+            display:flex;
+            justify-content:center;
+            align-items:center;
+            margin-bottom:14px;
+            background:#f5eee7;
+            border-radius:50%;
+            font-size:30px;
+        }
+
+        .empty strong{
+            margin-bottom:5px;
+            color:var(--primary);
+            font-size:18px;
+        }
+
+        /* RESPONSIVE */
+
+        @media(max-width:950px){
+
+            .product-card{
+                grid-template-columns:minmax(200px,1fr) minmax(210px,1fr);
             }
 
-            .add-form {
-                grid-template-columns: 1fr;
+            .actions{
+                grid-column:1 / -1;
+                display:grid;
+                grid-template-columns:1fr 1fr;
             }
 
-            .product-card {
-                grid-template-columns: 1fr;
-            }
-
-            .edit-form {
-                display: flex;
-                flex-direction: column;
-                gap: 10px;
-            }
-
-            .actions {
-                justify-content: flex-start;
-            }
         }
+
+        @media(max-width:800px){
+
+            header{
+                align-items:flex-start;
+                flex-direction:column;
+                padding:23px 20px;
+            }
+
+            .back-button{
+                width:100%;
+            }
+
+            .page-heading{
+                align-items:flex-start;
+                flex-direction:column;
+                gap:10px;
+            }
+
+            .add-form{
+                grid-template-columns:1fr;
+            }
+
+            .add-button{
+                width:100%;
+            }
+
+        }
+
+        @media(max-width:650px){
+
+            header h1{
+                font-size:25px;
+            }
+
+            .brand-icon{
+                width:49px;
+                height:49px;
+                border-radius:14px;
+                font-size:24px;
+            }
+
+            .container{
+                width:94%;
+                margin-top:25px;
+            }
+
+            .add-section,
+            .menu-section{
+                padding:22px 18px;
+                border-radius:18px;
+            }
+
+            .section-header{
+                align-items:flex-start;
+            }
+
+            .product-card{
+                grid-template-columns:1fr;
+                gap:14px;
+                padding:17px 15px;
+            }
+
+            .product-info{
+                padding-left:7px;
+            }
+
+            .edit-area{
+                width:100%;
+            }
+
+            .actions{
+                grid-column:auto;
+                grid-template-columns:1fr;
+            }
+
+        }
+
     </style>
 </head>
 
 <body>
 
 <header>
-    <div>
-        <h1>☕ Administrar menú</h1>
-        <p>Agrega, edita y controla la disponibilidad de productos.</p>
+
+    <div class="brand">
+
+        <div class="brand-icon">
+            ☕
+        </div>
+
+        <div>
+            <h1>Administrar menú</h1>
+
+            <p>
+                Agrega, edita y controla la disponibilidad de productos.
+            </p>
+        </div>
+
     </div>
 
-    <a href="/dashboard" class="back-button">
+    <a
+        href="/dashboard"
+        class="back-button"
+    >
         ← Volver al dashboard
     </a>
+
 </header>
 
 <main class="container">
 
+    <div class="page-heading">
+
+        <div>
+            <h2>Gestión del menú</h2>
+
+            <p>
+                Administra los productos disponibles para los pedidos.
+            </p>
+        </div>
+
+        <div class="menu-status">
+            <span class="status-dot"></span>
+            Menú activo
+        </div>
+
+    </div>
+
     <section class="add-section">
-        <h2 class="section-title">Agregar producto</h2>
+
+        <div class="section-header">
+
+            <div class="section-title-wrap">
+
+                <div class="section-icon">
+                    ➕
+                </div>
+
+                <div>
+                    <h2 class="section-title">
+                        Agregar producto
+                    </h2>
+
+                    <p class="section-description">
+                        Añade un nuevo producto y establece su precio.
+                    </p>
+                </div>
+
+            </div>
+
+        </div>
 
         <form
             action="/menu/admin/add"
             method="post"
             class="add-form"
         >
-            <input
-                type="text"
-                name="producto"
-                placeholder="Nombre del producto"
-                required
-            >
 
-            <input
-                type="number"
-                name="precio"
-                placeholder="Precio"
-                min="0"
-                step="1"
-                required
-            >
+            <div class="input-group">
 
-            <button type="submit" class="add-button">
+                <label for="nuevo-producto">
+                    Nombre del producto
+                </label>
+
+                <input
+                    type="text"
+                    id="nuevo-producto"
+                    name="producto"
+                    placeholder="Ejemplo: Capuchino"
+                    required
+                >
+
+            </div>
+
+            <div class="input-group">
+
+                <label for="nuevo-precio">
+                    Precio
+                </label>
+
+                <input
+                    type="number"
+                    id="nuevo-precio"
+                    name="precio"
+                    placeholder="Precio"
+                    min="0"
+                    step="1"
+                    required
+                >
+
+            </div>
+
+            <button
+                type="submit"
+                class="add-button"
+            >
                 ➕ Agregar
             </button>
+
         </form>
+
     </section>
 
     <section class="menu-section">
-        <h2 class="section-title">
-            Productos del menú
-        </h2>
+
+        <div class="section-header">
+
+            <div class="section-title-wrap">
+
+                <div class="section-icon">
+                    📋
+                </div>
+
+                <div>
+                    <h2 class="section-title">
+                        Productos del menú
+                    </h2>
+
+                    <p class="section-description">
+                        Edita precios o cambia la disponibilidad.
+                    </p>
+                </div>
+
+            </div>
+
+        </div>
 
         <div class="product-list">
 
             {% for item in productos %}
 
-            <article class="product-card {% if not item['activo'] %}inactive{% endif %}">
+            <article
+                class="product-card {% if not item['activo'] %}inactive{% endif %}"
+            >
 
                 <div class="product-info">
+
                     <div class="product-name">
                         {{ item["producto"] }}
                     </div>
@@ -303,25 +830,33 @@
                     </div>
 
                     {% if item["activo"] %}
+
                         <span class="status status-active">
                             Disponible
                         </span>
+
                     {% else %}
+
                         <span class="status status-inactive">
                             No disponible
                         </span>
+
                     {% endif %}
+
                 </div>
 
-                <div>
+                <div class="edit-area">
+
                     <form
                         action="/menu/admin/{{ item['id'] }}/edit"
                         method="post"
                     >
+
                         <input
                             type="text"
                             name="producto"
                             value="{{ item['producto'] }}"
+                            aria-label="Nombre del producto"
                             required
                         >
 
@@ -330,26 +865,30 @@
                             name="precio"
                             value="{{ item['precio'] }}"
                             min="0"
+                            aria-label="Precio del producto"
                             required
-                            style="margin-top:8px;"
                         >
 
                         <button
                             type="submit"
                             class="edit-button"
-                            style="margin-top:8px;"
                         >
                             💾 Guardar cambios
                         </button>
+
                     </form>
+
                 </div>
 
                 <div class="actions">
+
                     <form
                         action="/menu/admin/{{ item['id'] }}/toggle"
                         method="post"
                     >
+
                         {% if item["activo"] %}
+
                             <button
                                 type="submit"
                                 class="disable-button"
@@ -359,25 +898,37 @@
                             >
                                 ⛔ Desactivar
                             </button>
+
                         {% else %}
+
                             <button
                                 type="submit"
                                 class="enable-button"
                             >
                                 ✅ Activar
                             </button>
+
                         {% endif %}
+
                     </form>
 
                     <form
                         action="/menu/admin/{{ item['id'] }}/delete"
                         method="post"
-                        onsubmit="return confirm('¿Seguro que quieres eliminar este producto completamente? Esta acción no se puede deshacer.');"
+                        onsubmit="return confirm(
+                            '¿Seguro que quieres eliminar este producto completamente? Esta acción no se puede deshacer.'
+                        );"
                     >
-                        <button type="submit" class="delete-btn">
+
+                        <button
+                            type="submit"
+                            class="delete-btn"
+                        >
                             🗑️ Eliminar
                         </button>
+
                     </form>
+
                 </div>
 
             </article>
@@ -385,15 +936,30 @@
             {% else %}
 
             <div class="empty">
-                No hay productos registrados.
+
+                <div class="empty-icon">
+                    ☕
+                </div>
+
+                <strong>
+                    No hay productos registrados
+                </strong>
+
+                <span>
+                    Agrega el primer producto usando el formulario superior.
+                </span>
+
             </div>
 
             {% endfor %}
 
         </div>
+
     </section>
 
 </main>
 
 </body>
+
 </html>
+```
