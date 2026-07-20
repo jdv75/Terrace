@@ -2768,19 +2768,10 @@ async def chat_messages(telefono: str):
     html = ""
 
     for m in mensajes:
-        if m["direccion"] == "out":
-            style = "background:#d1fae5; margin-left:auto;"
-        else:
-            style = "background:#e5e7eb;"
+        clase = "out" if m["direccion"] == "out" else "in"
 
         html += f"""
-        <div style="
-            margin:10px;
-            padding:10px;
-            border-radius:10px;
-            max-width:60%;
-            {style}
-        ">
+        <div class="message {clase}">
             <p>{m["mensaje"]}</p>
             <small>{m["fecha"]}</small>
         </div>
