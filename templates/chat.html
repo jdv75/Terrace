@@ -451,6 +451,22 @@
             text-align:center;
         }
 
+        @keyframes messageIn{
+            from{
+                opacity:0;
+                transform:translateY(4px);
+            }
+
+            to{
+                opacity:1;
+                transform:translateY(0);
+            }
+        }
+
+        #messages.refreshing .message{
+            animation:none !important;
+        }
+
         /* RESPONSIVE */
 
         @media(max-width:750px){
@@ -694,10 +710,20 @@ setInterval(() => {
                 messages.scrollHeight - messages.scrollTop
                 <= messages.clientHeight + 50;
 
-            messages.innerHTML = html;
+            // Solo actualiza cuando el contenido realmente cambió
+            if (messages.innerHTML.trim() !== html.trim()) {
 
-            if (estabaAbajo){
-                messages.scrollTop = messages.scrollHeight;
+                messages.classList.add("refreshing");
+
+                messages.innerHTML = html;
+
+                if (estabaAbajo){
+                    messages.scrollTop = messages.scrollHeight;
+                }
+
+                requestAnimationFrame(() => {
+                    messages.classList.remove("refreshing");
+                });
             }
 
         });
@@ -728,8 +754,14 @@ document
                 .then(r => r.text())
                 .then(html => {
 
+                    messages.classList.add("refreshing");
+
                     messages.innerHTML = html;
                     messages.scrollTop = messages.scrollHeight;
+
+                    requestAnimationFrame(() => {
+                        messages.classList.remove("refreshing");
+                    });
 
                 });
 
