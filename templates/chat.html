@@ -699,6 +699,23 @@ const messages = document.getElementById("messages");
 messages.scrollTop = messages.scrollHeight;
 
 
+// Agrega únicamente los mensajes nuevos
+function agregarMensajesNuevos(html) {
+
+    const temp = document.createElement("div");
+    temp.innerHTML = html;
+
+    while (messages.children.length < temp.children.length) {
+
+        messages.appendChild(
+            temp.children[messages.children.length].cloneNode(true)
+        );
+
+    }
+
+}
+
+
 // Actualizar mensajes
 setInterval(() => {
 
@@ -710,22 +727,15 @@ setInterval(() => {
                 messages.scrollHeight - messages.scrollTop
                 <= messages.clientHeight + 50;
 
-            // Solo actualiza cuando el contenido realmente cambió
-            if (messages.innerHTML.trim() !== html.trim()) {
+            agregarMensajesNuevos(html);
 
-                messages.classList.add("refreshing");
-
-                messages.innerHTML = html;
-
-                if (estabaAbajo){
-                    messages.scrollTop = messages.scrollHeight;
-                }
-
-                requestAnimationFrame(() => {
-                    messages.classList.remove("refreshing");
-                });
+            if (estabaAbajo) {
+                messages.scrollTop = messages.scrollHeight;
             }
 
+        })
+        .catch(error => {
+            console.error("Error actualizando mensajes:", error);
         });
 
 }, 3000);
@@ -740,32 +750,44 @@ document
 
         const form = new FormData(this);
 
-        await fetch("/manual/send",{
-            method:"POST",
-            body:form
-        });
+        try {
 
-        document.getElementById("mensaje").value = "";
+            const response = await fetch("/manual/send", {
+                method: "POST",
+                body: form
+            });
 
-        // Espera medio segundo para que Meta responda
-        setTimeout(() => {
+            if (!response.ok) {
+                console.error("No se pudo enviar el mensaje");
+                return;
+            }
 
-            fetch("/chat/{{ telefono }}/messages")
-                .then(r => r.text())
-                .then(html => {
+            document.getElementById("mensaje").value = "";
 
-                    messages.classList.add("refreshing");
+            setTimeout(() => {
 
-                    messages.innerHTML = html;
-                    messages.scrollTop = messages.scrollHeight;
+                fetch("/chat/{{ telefono }}/messages")
+                    .then(r => r.text())
+                    .then(html => {
 
-                    requestAnimationFrame(() => {
-                        messages.classList.remove("refreshing");
+                        agregarMensajesNuevos(html);
+                        messages.scrollTop = messages.scrollHeight;
+
+                    })
+                    .catch(error => {
+                        console.error(
+                            "Error actualizando mensajes:",
+                            error
+                        );
                     });
 
-                });
+            }, 500);
 
-        }, 500);
+        } catch (error) {
+
+            console.error("Error enviando el mensaje:", error);
+
+        }
 
     });
 
